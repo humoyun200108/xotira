@@ -1,0 +1,17 @@
+# build output
+build/
+dist/
+
+# runtime data (lives in %LOCALAPPDATA%\Xotira, but never commit a local copy)
+data/
+*.log
+
+# python
+__pycache__/
+*.pyc
+
+# editors / OS
+.vscode/
+.idea/
+Thumbs.db
+desktop.ini

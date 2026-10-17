@@ -1,0 +1,78 @@
+# Builds the installer on GitHub's own Windows runner, so every release binary is traceable to this repository.
+# - SHA-256 checksums are published next to the installer
+# - a build-provenance attestation lets anyone verify the file:  gh attestation verify Xotira-Setup-X.Y.Z.exe -R <owner>/xotira
+# - if SignPath is configured (repo variable SIGNPATH_ORGANIZATION_ID + secret SIGNPATH_API_TOKEN) the installer is code-signed
+name: Release
+
+on:
+  push:
+    tags: ['v*']
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  id-token: write
+  attestations: write
+  actions: read
+
+jobs:
+  build:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Inno Setup
+        run: choco install innosetup --no-progress -y
+
+      - name: Build installer (signed official Python + source)
+        shell: pwsh
+        run: ./installer/build.ps1 -RepoUrl "${{ github.server_url }}/${{ github.repository }}"
+
+      - name: Upload unsigned installer
+        id: unsigned
+        uses: actions/upload-artifact@v4
+        with:
+          name: installer-unsigned
+          path: dist/*.exe
+          if-no-files-found: error
+
+      - name: Code-sign with SignPath
+        if: ${{ vars.SIGNPATH_ORGANIZATION_ID != '' }}
+        uses: signpath/github-action-submit-signing-request@v1
+        with:
+          api-token: ${{ secrets.SIGNPATH_API_TOKEN }}
+          organization-id: ${{ vars.SIGNPATH_ORGANIZATION_ID }}
+          project-slug: xotira
+          signing-policy-slug: release-signing
+          github-artifact-id: ${{ steps.unsigned.outputs.artifact-id }}
+          wait-for-completion: true
+          output-artifact-directory: dist-signed
+
+      - name: Use the signed installer
+        if: ${{ vars.SIGNPATH_ORGANIZATION_ID != '' }}
+        shell: pwsh
+        run: |
+          Copy-Item dist-signed/*.exe dist/ -Force
+          Get-AuthenticodeSignature dist/*.exe | Format-List Status, SignerCertificate
+
+      - name: SHA-256 checksums
+        shell: pwsh
+        run: |
+          Get-ChildItem dist/*.exe | Get-FileHash -Algorithm SHA256 |
+            ForEach-Object { "$($_.Hash.ToLower())  $(Split-Path $_.Path -Leaf)" } |
+            Set-Content dist/SHA256SUMS.txt -Encoding ascii
+          Get-Content dist/SHA256SUMS.txt
+
+      - name: Build provenance attestation
+        uses: actions/attest-build-provenance@v2
+        with:
+          subject-path: 'dist/*.exe'
+
+      - name: Publish GitHub release
+        if: startsWith(github.ref, 'refs/tags/')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            dist/*.exe
+            dist/SHA256SUMS.txt
+          generate_release_notes: true

@@ -1,0 +1,2125 @@
+<!doctype html>
+<html lang="uz">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Xotira</title>
+<meta name="description" content="Xotira — smart disk cleaner for Windows. Explains why your disk is full and frees space safely.">
+<meta name="author" content="Humoyun Safarov">
+<link rel="icon" type="image/png" sizes="256x256" href="assets/icon.png">
+<meta name="theme-color" content="#08090c">
+<link rel="stylesheet" href="assets/fonts/fonts.css">
+<script>
+  (function () {
+    var t = null; try { t = localStorage.getItem('xotira-theme'); } catch (e) {}
+    if (!t) t = matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark';
+    document.documentElement.dataset.theme = t;
+  })();
+</script>
+<style>
+:root{
+  --bg:#08090c; --bg-2:#0c0e12; --card:#111419; --card-2:#161a20; --hover:#1a1f26; --line:#20262e; --line-2:#2b323b;
+  --text:#ebeff4; --muted:#8e99a6; --dim:#5d6773;
+  --accent:#c6f432; --accent-2:#b2e01c; --accent-ink:#0b0e04; --accent-soft:rgba(198,244,50,.11); --accent-text:#c6f432;
+  --ok:#3ddc84; --warn:#ffb340; --bad:#ff5468; --info:#6aa8ff; --violet:#a78bfa;
+  --ok-soft:rgba(61,220,132,.12); --warn-soft:rgba(255,179,64,.13); --bad-soft:rgba(255,84,104,.13); --violet-soft:rgba(167,139,250,.15); --info-soft:rgba(106,168,255,.13);
+  --r:20px; --r-sm:12px;
+  --shadow:0 1px 0 rgba(255,255,255,.035) inset, 0 24px 48px -28px rgba(0,0,0,.75);
+  --mix:80%; --tile-ink:#fff; --track:#1b2027;
+  --font:'Manrope','Segoe UI Variable Text','Segoe UI',system-ui,sans-serif;
+  --display:'Unbounded','Manrope','Segoe UI',sans-serif;
+  --mono:'JetBrains Mono','Cascadia Mono',Consolas,monospace;
+  color-scheme:dark;
+}
+:root[data-theme="light"]{
+  --bg:#f1f2ee; --bg-2:#e8eae4; --card:#ffffff; --card-2:#f7f8f4; --hover:#f1f3ed; --line:#e2e5dd; --line-2:#d3d7cd;
+  --text:#121519; --muted:#5b6570; --dim:#8c949c;
+  --accent-soft:rgba(110,150,0,.12); --accent-text:#4f7300;
+  --ok:#11a457; --warn:#c27400; --bad:#df243a; --info:#2f6fe0; --violet:#7357ee;
+  --shadow:0 1px 2px rgba(20,25,30,.04), 0 14px 34px -20px rgba(20,25,30,.22);
+  --mix:46%; --tile-ink:#10140c; --track:#e7e9e3;
+  color-scheme:light;
+}
+*{box-sizing:border-box}
+html{-webkit-text-size-adjust:100%}
+body{margin:0;background:var(--bg);color:var(--text);font:500 14px/1.5 var(--font);min-height:100vh;overflow-x:hidden;
+  background-image:radial-gradient(1100px 520px at -8% -18%, var(--accent-soft), transparent 60%), radial-gradient(900px 440px at 108% -8%, var(--violet-soft), transparent 60%);
+  background-attachment:fixed}
+button,input,select{font:inherit;color:inherit}
+code{font-family:var(--mono);font-size:.92em;background:var(--line);padding:1px 6px;border-radius:6px}
+.mono{font-family:var(--mono);font-variant-numeric:tabular-nums;letter-spacing:-.01em}
+.muted{color:var(--muted)} .dim{color:var(--dim)}
+svg.i{width:18px;height:18px;flex:none;stroke:currentColor;fill:none;stroke-width:1.9;stroke-linecap:round;stroke-linejoin:round}
+svg.i.sm{width:15px;height:15px} svg.i.lg{width:22px;height:22px}
+
+/* ---------- top bar + global progress line */
+.top{position:sticky;top:0;z-index:30;display:flex;align-items:center;gap:10px;padding:12px max(16px,env(safe-area-inset-left));
+  background:color-mix(in oklab,var(--bg) 82%,transparent);backdrop-filter:blur(14px);border-bottom:1px solid var(--line)}
+.brand{display:flex;align-items:center;gap:10px;font-weight:800;letter-spacing:-.02em;min-width:0}
+.brand .logo{width:30px;height:30px;border-radius:9px;background:var(--card);border:1px solid var(--line-2);display:grid;place-items:center;flex:none}
+.brand b{font-family:var(--display);font-weight:700;font-size:15px;letter-spacing:.02em}
+.brand span{color:var(--muted);font-weight:600;font-size:12.5px;white-space:nowrap}
+.top .sp{flex:1}
+.topline{position:absolute;left:0;right:0;bottom:-1px;height:2px;overflow:hidden;opacity:0;transition:opacity .3s}
+.topline.on{opacity:1}
+.topline i{display:block;height:100%;width:0;background:linear-gradient(90deg,transparent,var(--accent));transition:width .6s ease;box-shadow:0 0 12px var(--accent)}
+.topline.ind i{width:30%!important;animation:ind 1.3s ease-in-out infinite}
+.pill{display:inline-flex;align-items:center;gap:6px;padding:4px 10px;border-radius:999px;font-size:12px;font-weight:700;border:1px solid var(--line-2);color:var(--muted);white-space:nowrap}
+.pill.ok{color:var(--ok);background:var(--ok-soft);border-color:transparent}
+.pill.off{color:var(--bad);background:var(--bad-soft);border-color:transparent}
+.pill.live{color:var(--accent-text);background:var(--accent-soft);border-color:transparent;cursor:pointer}
+.pill.live::before{content:'';width:7px;height:7px;border-radius:50%;background:var(--accent);animation:pulse 1.2s ease-in-out infinite}
+@keyframes pulse{50%{opacity:.25;transform:scale(.7)}}
+
+/* ---------- buttons */
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;height:38px;padding:0 15px;border-radius:11px;border:1px solid var(--line-2);
+  background:var(--card-2);font-weight:700;font-size:13.5px;cursor:pointer;white-space:nowrap;transition:background .15s,border-color .15s,transform .08s,opacity .15s,box-shadow .2s}
+.btn:hover{background:var(--hover);border-color:var(--dim)}
+.btn:active{transform:translateY(1px)}
+.btn:disabled{opacity:.45;cursor:not-allowed}
+.btn.primary{background:var(--accent);color:var(--accent-ink);border-color:transparent}
+.btn.primary:hover{background:var(--accent-2);box-shadow:0 8px 24px -10px var(--accent)}
+.btn.danger{background:var(--bad);color:#fff;border-color:transparent}
+.btn.danger:hover{filter:brightness(1.08)}
+.btn.ghost{background:transparent}
+.btn.sm{height:32px;padding:0 11px;font-size:12.5px;border-radius:9px}
+.btn.violet{background:var(--violet-soft);color:var(--violet);border-color:transparent}
+.ib{display:inline-grid;place-items:center;width:32px;height:32px;border-radius:9px;border:1px solid transparent;background:transparent;color:var(--muted);cursor:pointer}
+.ib:hover{background:var(--hover);color:var(--text);border-color:var(--line-2)}
+.ib.danger:hover{color:var(--bad)}
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+
+/* ---------- layout */
+.wrap{max-width:1340px;margin:0 auto;padding:22px max(16px,env(safe-area-inset-left)) 120px}
+.card{background:var(--card);border:1px solid var(--line);border-radius:var(--r);box-shadow:var(--shadow)}
+.hero{display:grid;grid-template-columns:minmax(0,1.25fr) minmax(0,1fr);gap:16px}
+.drive{padding:24px;display:grid;grid-template-columns:auto minmax(0,1fr);gap:28px;align-items:center;position:relative;overflow:hidden}
+.drive::after{content:'';position:absolute;inset:auto -20% -60% 30%;height:260px;background:radial-gradient(closest-side,var(--accent-soft),transparent);pointer-events:none}
+.donut-wrap{position:relative;width:230px;height:230px;flex:none}
+.donut{width:100%;height:100%;transform:rotate(-90deg);overflow:visible}
+.donut circle{fill:none;stroke-width:20}
+.donut .trk{stroke:var(--track)}
+.donut .seg{transition:stroke-dasharray 1s cubic-bezier(.2,.8,.2,1),stroke-width .2s,opacity .2s;cursor:pointer;pointer-events:stroke}
+.donut.hov .seg{opacity:.45}
+.donut .seg:hover,.donut .seg.hl{opacity:1;stroke-width:26}
+.d-center{position:absolute;inset:0;display:grid;place-content:center;text-align:center;pointer-events:none;padding:44px}
+.d-center b{font-family:var(--display);font-size:30px;font-weight:700;letter-spacing:-.03em;line-height:1}
+.d-center span{color:var(--muted);font-size:11.5px;font-weight:800;margin-top:7px;text-transform:uppercase;letter-spacing:.08em;line-height:1.3}
+.d-center em{font-style:normal;font-size:12px;font-weight:700;margin-top:4px;color:var(--text);line-height:1.3}
+.eyebrow{display:flex;gap:8px;align-items:center;flex-wrap:wrap;color:var(--muted);font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.08em}
+.drive h1{font-family:var(--display);font-weight:700;font-size:clamp(30px,4.4vw,48px);letter-spacing:-.035em;margin:8px 0 2px;line-height:1.02}
+.drive h1 small{font-family:var(--font);font-size:15px;color:var(--muted);font-weight:700;letter-spacing:0;margin-left:6px}
+.drive .sub{margin:0 0 14px;color:var(--muted);font-weight:600}
+.health{display:flex;gap:8px;align-items:flex-start;padding:9px 12px;border-radius:12px;font-weight:650;font-size:13px;line-height:1.4}
+.health.bad{background:var(--bad-soft);color:var(--bad)} .health.warn{background:var(--warn-soft);color:var(--warn)} .health.ok{background:var(--ok-soft);color:var(--ok)}
+.health svg{margin-top:1px}
+.legend{display:flex;flex-wrap:wrap;gap:6px 14px;margin-top:14px;font-size:12px;color:var(--muted);font-weight:650}
+.legend span{display:inline-flex;align-items:center;gap:6px;cursor:pointer;transition:color .15s}
+.legend span:hover,.legend span.hl{color:var(--text)}
+.legend i{width:9px;height:9px;border-radius:3px;background:var(--c)}
+.legend b{font-family:var(--mono);font-weight:600;color:var(--text)}
+.drive-chips{display:flex;gap:6px;flex-wrap:wrap}
+.tiles{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+.tile{padding:16px 18px;display:flex;flex-direction:column;gap:5px;min-height:156px;position:relative;overflow:hidden}
+.tile .t-h{display:flex;align-items:center;gap:8px;color:var(--muted);font-size:11.5px;font-weight:800;text-transform:uppercase;letter-spacing:.07em}
+.tile .t-v{font-family:var(--display);font-weight:700;font-size:clamp(20px,2.4vw,28px);letter-spacing:-.025em;line-height:1.15;margin-top:2px}
+.tile .t-s{color:var(--muted);font-size:12.5px;font-weight:600;line-height:1.4}
+.tile .t-a{margin-top:auto;display:flex;gap:8px;flex-wrap:wrap;padding-top:8px}
+.tile.accent{background:linear-gradient(160deg,var(--accent-soft),transparent 70%),var(--card);border-color:color-mix(in oklab,var(--accent) 30%,var(--line))}
+.tile.accent .t-v{color:var(--accent-text)}
+.tile.click{cursor:pointer;transition:border-color .15s,transform .15s}
+.tile.click:hover{border-color:var(--line-2);transform:translateY(-2px)}
+.scan-row{display:flex;align-items:center;gap:12px}
+.mini-ring{width:46px;height:46px;flex:none;transform:rotate(-90deg)}
+.mini-ring circle{fill:none;stroke-width:5}
+.mini-ring .trk{stroke:var(--track)}
+.mini-ring .fg{stroke:var(--accent);stroke-linecap:round;transition:stroke-dasharray .6s}
+.spark{width:100%;height:46px;margin-top:auto;display:block}
+.prog-line{height:6px;border-radius:99px;background:var(--track);overflow:hidden;margin-top:4px}
+.prog-line i{display:block;height:100%;background:var(--accent);border-radius:99px;transition:width .5s}
+.prog-line.ind i{width:35%!important;animation:ind 1.2s ease-in-out infinite}
+@keyframes ind{0%{transform:translateX(-100%)}100%{transform:translateX(300%)}}
+.scan-cur{font-family:var(--mono);font-size:11px;color:var(--dim);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;direction:rtl;text-align:left}
+
+/* ---------- section titles */
+.sec-title{display:flex;align-items:center;gap:10px;margin:30px 2px 12px;font-weight:800;font-size:12.5px;color:var(--muted);text-transform:uppercase;letter-spacing:.08em}
+.sec-title .line{flex:1;height:1px;background:var(--line)}
+
+/* ---------- diagnosis */
+.diag-head{padding:22px 24px;display:grid;grid-template-columns:minmax(0,1.3fr) minmax(0,1fr);gap:22px;align-items:center;position:relative;overflow:hidden}
+.diag-head h2{margin:0;font-family:var(--display);font-weight:700;font-size:clamp(19px,2.3vw,25px);letter-spacing:-.025em;line-height:1.3}
+.diag-head h2 em{font-style:normal;color:var(--accent-text)}
+.diag-head p{margin:8px 0 0;color:var(--muted);font-weight:600;line-height:1.55}
+.wins{display:flex;flex-direction:column;gap:8px}
+.wins .w-h{font-size:11.5px;font-weight:800;color:var(--muted);text-transform:uppercase;letter-spacing:.07em;display:flex;justify-content:space-between;align-items:baseline}
+.wins .w-h b{font-family:var(--display);font-size:20px;color:var(--accent-text);letter-spacing:-.02em;text-transform:none}
+.win{display:flex;align-items:center;gap:10px;padding:9px 12px;border-radius:12px;background:var(--card-2);border:1px solid var(--line);cursor:pointer;transition:border-color .15s,transform .12s}
+.win:hover{border-color:var(--c,var(--line-2));transform:translateX(2px)}
+.win i{width:9px;height:9px;border-radius:3px;background:var(--c);flex:none}
+.win span{flex:1;font-weight:650;font-size:13px;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.win b{font-family:var(--mono);font-weight:600}
+.strip{display:flex;height:46px;border-radius:14px;overflow:hidden;margin:14px 0;background:var(--track);gap:2px}
+.strip > div{position:relative;min-width:3px;background:var(--c);display:flex;align-items:center;padding:0 10px;overflow:hidden;cursor:pointer;transition:filter .15s,flex-grow .6s;color:#0b0d10}
+.strip > div:hover{filter:brightness(1.12)}
+.strip > div span{font-size:12px;font-weight:800;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.strip > div.free{background:repeating-linear-gradient(135deg,var(--track) 0 7px,color-mix(in oklab,var(--track) 70%,var(--line-2)) 7px 14px);color:var(--muted)}
+.strip > div.hid{background:repeating-linear-gradient(135deg,#4b5563 0 6px,#3b434f 6px 12px);color:#d5dae1}
+.bgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(min(100%,300px),1fr));gap:14px}
+.bcard{padding:18px;display:flex;flex-direction:column;gap:10px;position:relative;overflow:hidden;transition:border-color .2s,transform .2s}
+.bcard::before{content:'';position:absolute;inset:0 0 auto 0;height:3px;background:var(--c);opacity:.9}
+.bcard::after{content:'';position:absolute;right:-40px;top:-60px;width:180px;height:180px;border-radius:50%;background:radial-gradient(closest-side,color-mix(in oklab,var(--c) 22%,transparent),transparent);pointer-events:none}
+.bcard:hover{border-color:color-mix(in oklab,var(--c) 45%,var(--line));transform:translateY(-2px)}
+.bc-h{display:flex;align-items:center;gap:11px}
+.bc-ic{width:38px;height:38px;border-radius:11px;display:grid;place-items:center;color:var(--c);background:color-mix(in oklab,var(--c) 15%,transparent);flex:none}
+.bc-h b{display:block;font-size:15px;line-height:1.25}
+.bc-h small{color:var(--muted);font-weight:700;font-size:12px}
+.bc-z{margin-left:auto;font-family:var(--display);font-weight:700;font-size:20px;letter-spacing:-.02em;white-space:nowrap}
+.bc-bar{height:6px;border-radius:99px;background:var(--track);overflow:hidden}
+.bc-bar i{display:block;height:100%;background:var(--c);border-radius:99px;transition:width .9s cubic-bezier(.2,.8,.2,1)}
+.tone{align-self:flex-start;display:inline-flex;align-items:center;gap:5px;font-size:11px;font-weight:800;padding:3px 9px;border-radius:7px;text-transform:uppercase;letter-spacing:.05em}
+.tone.ok{background:var(--ok-soft);color:var(--ok)} .tone.warn{background:var(--warn-soft);color:var(--warn)}
+.tone.act{background:var(--accent-soft);color:var(--accent-text)} .tone.info{background:var(--line);color:var(--muted)}
+.bc-t{margin:0;color:var(--muted);font-size:13px;line-height:1.55;font-weight:550}
+.bc-t b{color:var(--text);font-weight:700}
+.bc-items{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:2px}
+.bc-items li{display:flex;justify-content:space-between;gap:10px;padding:6px 8px;margin:0 -8px;border-radius:8px;font-size:12.5px;cursor:pointer}
+.bc-items li:hover{background:var(--hover)}
+.bc-items li span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-weight:600}
+.bc-items li b{font-family:var(--mono);font-weight:600;color:var(--muted);flex:none}
+.bc-cta{margin-top:auto;align-self:flex-start;display:inline-flex;gap:6px;align-items:center;border:0;background:none;padding:4px 0;font-weight:800;font-size:13px;color:var(--accent-text);cursor:pointer}
+.bc-cta:hover{gap:9px}
+.skel{border-radius:8px;background:linear-gradient(90deg,var(--line),var(--line-2),var(--line));background-size:200% 100%;animation:sh 1.4s infinite}
+@keyframes sh{0%{background-position:200% 0}100%{background-position:-200% 0}}
+
+/* ---------- advice */
+.advice{display:grid;grid-template-columns:repeat(auto-fill,minmax(min(100%,250px),1fr));gap:12px}
+.adv{padding:15px 16px;display:flex;gap:13px;align-items:flex-start;cursor:pointer;transition:border-color .15s,transform .15s}
+.adv:hover{border-color:var(--line-2);transform:translateY(-2px)}
+.adv .a-ic{width:38px;height:38px;border-radius:11px;display:grid;place-items:center;background:var(--c-soft,var(--accent-soft));color:var(--c,var(--accent-text));flex:none}
+.adv b{display:block;font-size:14.5px;line-height:1.35}
+.adv p{margin:3px 0 0;color:var(--muted);font-size:12.5px;line-height:1.4}
+.adv .a-go{margin-top:8px;font-size:12.5px;font-weight:800;color:var(--accent-text);display:inline-flex;gap:4px;align-items:center}
+
+/* ---------- tabs */
+.tabs{position:sticky;top:55px;z-index:20;display:flex;gap:4px;overflow-x:auto;scrollbar-width:none;margin:28px -4px 0;padding:6px 4px;
+  background:color-mix(in oklab,var(--bg) 88%,transparent);backdrop-filter:blur(12px)}
+.tabs::-webkit-scrollbar{display:none}
+.tab{display:inline-flex;align-items:center;gap:8px;height:38px;padding:0 14px;border-radius:11px;border:1px solid transparent;background:transparent;color:var(--muted);font-weight:750;cursor:pointer;white-space:nowrap;flex:none}
+.tab:hover{color:var(--text);background:var(--card)}
+.tab.on{background:var(--card);color:var(--text);border-color:var(--line-2)}
+.tab.on svg{color:var(--accent-text)}
+.tab .cnt{font-family:var(--mono);font-size:11px;padding:1px 7px;border-radius:99px;background:var(--line);color:var(--muted)}
+.tab .cnt.hot{background:var(--accent-soft);color:var(--accent-text)}
+.panel{display:none;margin-top:12px}
+.panel.on{display:block;animation:fade .25s ease}
+@keyframes fade{from{opacity:0;transform:translateY(4px)}to{opacity:1;transform:none}}
+.panel-head{display:flex;align-items:flex-end;justify-content:space-between;gap:14px;flex-wrap:wrap;margin:6px 2px 14px}
+.panel-head h2{margin:0;font-family:var(--display);font-weight:700;font-size:21px;letter-spacing:-.02em}
+.panel-head p{margin:4px 0 0;color:var(--muted);font-weight:600;max-width:680px}
+.head-actions{display:flex;gap:8px;flex-wrap:wrap}
+
+/* ---------- smart */
+.sgroups{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,520px),1fr));gap:14px;align-items:start}
+.sgroup{overflow:hidden}
+.sg-h{display:flex;align-items:center;gap:10px;padding:13px 16px;border-bottom:1px solid var(--line);font-weight:800}
+.sg-h .sg-t{margin-left:auto;font-family:var(--mono);color:var(--muted);font-size:12.5px}
+.srow{display:grid;grid-template-columns:24px minmax(0,1fr) auto auto;gap:12px;align-items:center;padding:12px 16px;border-bottom:1px solid var(--line);cursor:pointer;transition:background .12s}
+.srow:last-child{border-bottom:0}
+.srow:hover{background:var(--hover)}
+.srow.off{cursor:default;opacity:.62}
+.srow .s-t{font-weight:750;display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.srow .s-d{color:var(--muted);font-size:12.5px;line-height:1.4;margin-top:2px}
+.srow .s-n{color:var(--warn);font-size:12px;font-weight:650;margin-top:3px}
+.srow .s-z{font-family:var(--mono);font-weight:600;text-align:right;min-width:78px}
+.badge{display:inline-flex;align-items:center;gap:4px;font-size:10.5px;font-weight:800;padding:2px 7px;border-radius:6px;text-transform:uppercase;letter-spacing:.05em;white-space:nowrap}
+.badge.safe{background:var(--ok-soft);color:var(--ok)} .badge.care{background:var(--warn-soft);color:var(--warn)}
+.badge.admin{background:var(--violet-soft);color:var(--violet)} .badge.info{background:var(--info-soft);color:var(--info)}
+.badge.gray{background:var(--line);color:var(--muted)} .badge.bad{background:var(--bad-soft);color:var(--bad)}
+input[type=checkbox]{appearance:none;width:19px;height:19px;border-radius:6px;border:1.6px solid var(--line-2);background:var(--card-2);display:grid;place-items:center;cursor:pointer;margin:0;transition:all .12s;flex:none}
+input[type=checkbox]:checked{background:var(--accent);border-color:var(--accent)}
+input[type=checkbox]:checked::after{content:'';width:9px;height:5px;border:2.4px solid var(--accent-ink);border-top:0;border-right:0;transform:rotate(-45deg) translate(1px,-1px)}
+input[type=checkbox]:disabled{opacity:.4;cursor:not-allowed}
+.tools{display:grid;grid-template-columns:repeat(auto-fill,minmax(min(100%,250px),1fr));gap:12px}
+.tool{padding:16px;display:flex;flex-direction:column;gap:6px}
+.tool .tl-h{display:flex;align-items:center;gap:10px;font-weight:800}
+.tool .tl-h .ic{width:34px;height:34px;border-radius:10px;display:grid;place-items:center;background:var(--line);color:var(--text);flex:none}
+.tool p{margin:0;color:var(--muted);font-size:12.5px;line-height:1.45}
+.tool .tl-z{font-family:var(--display);font-weight:700;font-size:20px;margin-top:2px}
+.tool .tl-a{margin-top:auto;padding-top:8px;display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.clean-note{margin:12px 2px 0;color:var(--dim);font-size:12.5px}
+.stickybar{position:sticky;bottom:14px;z-index:15;margin-top:14px;display:flex;align-items:center;gap:12px;padding:12px 14px;border-radius:16px;
+  background:color-mix(in oklab,var(--card) 92%,transparent);backdrop-filter:blur(14px);border:1px solid var(--line-2);box-shadow:0 20px 40px -20px rgba(0,0,0,.5)}
+.stickybar .sb-t{font-weight:700}
+.stickybar .sb-t b{font-family:var(--display);color:var(--accent-text)}
+.stickybar .sp{flex:1}
+
+/* ---------- games */
+.ggrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(min(100%,330px),1fr));gap:14px}
+.game{overflow:hidden;display:flex;flex-direction:column;transition:transform .2s,border-color .2s}
+.game:hover{transform:translateY(-3px);border-color:var(--line-2)}
+.g-cover{position:relative;aspect-ratio:16/7;background:linear-gradient(135deg,#2a1f3d,#14202b);overflow:hidden}
+.g-cover img{width:100%;height:100%;object-fit:cover;display:block;transition:transform .5s}
+.game:hover .g-cover img{transform:scale(1.04)}
+.g-cover::after{content:'';position:absolute;inset:0;background:linear-gradient(180deg,transparent 35%,rgba(5,6,8,.85))}
+.g-cover .g-name{position:absolute;left:16px;right:16px;bottom:12px;z-index:1;color:#fff;font-family:var(--display);font-weight:700;font-size:17px;letter-spacing:-.01em;text-shadow:0 2px 12px rgba(0,0,0,.6);line-height:1.2}
+.g-cover .g-badges{position:absolute;top:10px;left:10px;right:10px;z-index:1;display:flex;gap:6px;justify-content:space-between}
+.g-cover .badge{backdrop-filter:blur(8px);background:rgba(10,12,15,.6);color:#e6ebf0}
+.g-cover .badge.care{background:rgba(255,179,64,.88);color:#1a1205}
+.g-cover .badge.bad{background:rgba(255,84,104,.9);color:#fff}
+.g-cover .badge.live{background:rgba(198,244,50,.92);color:#0b0e04}
+.g-body{padding:14px 16px 16px;display:flex;flex-direction:column;gap:10px;flex:1}
+.g-stats{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
+.g-stats div{background:var(--card-2);border:1px solid var(--line);border-radius:11px;padding:8px 10px;min-width:0}
+.g-stats small{display:block;color:var(--dim);font-size:10.5px;font-weight:800;text-transform:uppercase;letter-spacing:.06em}
+.g-stats b{display:block;font-family:var(--mono);font-weight:600;font-size:13.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.g-acts{display:flex;gap:8px;margin-top:auto;flex-wrap:wrap}
+.g-sum{display:flex;gap:10px;flex-wrap:wrap;margin-bottom:14px}
+.g-sum .card{padding:12px 16px;display:flex;flex-direction:column;gap:2px;min-width:150px;flex:1}
+.g-sum small{color:var(--muted);font-size:11.5px;font-weight:800;text-transform:uppercase;letter-spacing:.06em}
+.g-sum b{font-family:var(--display);font-size:20px;letter-spacing:-.02em}
+
+/* ---------- lists */
+.list{overflow:hidden}
+.lhead,.row{display:grid;grid-template-columns:28px minmax(0,1fr) auto 92px 104px 74px;grid-template-areas:"ck nm meta sz dt acts";gap:12px;align-items:center;padding:0 14px}
+.lhead{height:38px;border-bottom:1px solid var(--line);color:var(--dim);font-size:11.5px;font-weight:800;text-transform:uppercase;letter-spacing:.07em}
+.lhead .sz,.lhead .dt{text-align:right}
+.row{min-height:52px;border-bottom:1px solid var(--line);position:relative;transition:background .1s}
+.row:last-child{border-bottom:0}
+.row:hover{background:var(--hover)}
+.row.sel{background:var(--accent-soft)}
+.row .ck{grid-area:ck;display:grid;place-items:center;color:var(--dim)}
+.row .nm{grid-area:nm;display:flex;align-items:center;gap:11px;min-width:0;padding:7px 0}
+.row .nm .ico{width:32px;height:32px;border-radius:9px;display:grid;place-items:center;flex:none;color:var(--c);background:color-mix(in oklab,var(--c) 15%,transparent)}
+.row .nm-t{min-width:0}
+.row .nm-t b{display:block;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.row .nm-t small{display:block;color:var(--dim);font-size:11.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.row .nm-t small.p{direction:rtl;text-align:left}
+.row.dirrow .nm-t b{cursor:pointer}
+.row.dirrow .nm-t b:hover{color:var(--accent-text)}
+.row .meta{grid-area:meta;display:flex;gap:6px;justify-content:flex-end;flex-wrap:wrap}
+.row .sz{grid-area:sz;text-align:right;font-family:var(--mono);font-weight:600}
+.row .dt{grid-area:dt;text-align:right;color:var(--muted);font-size:12.5px;white-space:nowrap}
+.row .acts{grid-area:acts;display:flex;justify-content:flex-end;gap:2px}
+.row .pct{position:absolute;left:0;bottom:-1px;height:2px;background:var(--accent);opacity:.75;border-radius:0 2px 2px 0}
+.empty{padding:40px 20px;text-align:center;color:var(--muted)}
+.empty b{display:block;color:var(--text);font-size:15px;margin-bottom:4px}
+.more{display:flex;justify-content:center;padding:12px}
+
+/* ---------- map */
+.crumbs{display:flex;align-items:center;gap:2px;flex-wrap:wrap;font-weight:700;min-width:0}
+.crumbs a{padding:5px 8px;border-radius:8px;color:var(--muted);cursor:pointer;text-decoration:none;white-space:nowrap;max-width:240px;overflow:hidden;text-overflow:ellipsis}
+.crumbs a:hover{background:var(--card);color:var(--text)}
+.crumbs a:last-child{color:var(--text)}
+.crumbs .s{color:var(--dim)}
+.map-sum{color:var(--muted);font-weight:600;margin-top:4px}
+.treemap{position:relative;height:min(46vh,460px);min-height:260px;border-radius:var(--r);overflow:hidden;background:var(--card);border:1px solid var(--line);margin-bottom:14px}
+.tm{position:absolute;border:1.5px solid var(--bg);border-radius:7px;overflow:hidden;padding:7px 9px;cursor:pointer;color:var(--tile-ink);
+  background:color-mix(in oklab,var(--c) var(--mix),var(--card));transition:filter .12s}
+.tm:hover{filter:brightness(1.15) saturate(1.1)}
+:root[data-theme="light"] .tm:hover{filter:brightness(.96)}
+.tm b{display:block;font-size:12.5px;font-weight:800;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;line-height:1.25}
+.tm span{display:block;font-family:var(--mono);font-size:11px;opacity:.82;white-space:nowrap}
+.tm.sel{outline:3px solid var(--accent);outline-offset:-3px}
+.tm.f{background-image:repeating-linear-gradient(135deg,transparent 0 8px,rgba(255,255,255,.04) 8px 16px)}
+.tip{position:fixed;z-index:60;pointer-events:none;background:var(--card-2);border:1px solid var(--line-2);border-radius:11px;padding:9px 12px;font-size:12.5px;max-width:340px;box-shadow:0 18px 40px -16px rgba(0,0,0,.6);display:none}
+.tip b{display:block;word-break:break-all}
+.tip .mono{color:var(--accent-text)}
+
+/* ---------- filters */
+.filters{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:12px}
+.chip{height:32px;padding:0 12px;border-radius:99px;border:1px solid var(--line-2);background:var(--card);font-weight:700;font-size:12.5px;cursor:pointer;display:inline-flex;align-items:center;gap:7px;color:var(--muted)}
+.chip i{width:8px;height:8px;border-radius:3px;background:var(--c)}
+.chip:hover{color:var(--text)}
+.chip.on{background:var(--text);color:var(--bg);border-color:var(--text)}
+.sel-in,.search{height:34px;border-radius:10px;border:1px solid var(--line-2);background:var(--card);padding:0 10px;font-weight:650;font-size:13px}
+.search{min-width:200px;flex:1;max-width:320px}
+.search:focus,.sel-in:focus{outline:2px solid var(--accent-soft);border-color:var(--accent-2)}
+
+/* ---------- types */
+.types{display:grid;grid-template-columns:minmax(0,1.1fr) minmax(0,1fr);gap:14px;align-items:start}
+.tcat{display:grid;grid-template-columns:34px minmax(0,1fr) auto;gap:12px;align-items:center;padding:12px 16px;border-bottom:1px solid var(--line);cursor:pointer}
+.tcat:last-child{border-bottom:0}
+.tcat:hover{background:var(--hover)}
+.tcat .ico{width:34px;height:34px;border-radius:10px;display:grid;place-items:center;color:var(--c);background:color-mix(in oklab,var(--c) 15%,transparent)}
+.tcat .bar{height:6px;border-radius:99px;background:var(--track);margin-top:7px;overflow:hidden}
+.tcat .bar i{display:block;height:100%;background:var(--c);border-radius:99px}
+.tcat small{color:var(--dim);font-size:11.5px}
+.ext-row{display:grid;grid-template-columns:minmax(0,1fr) 80px 90px;gap:10px;padding:9px 16px;border-bottom:1px solid var(--line);font-size:13px;align-items:center}
+.ext-row:last-child{border-bottom:0}
+.ext-row .e{display:flex;align-items:center;gap:8px;font-weight:700}
+.ext-row .e i{width:8px;height:8px;border-radius:3px;background:var(--c)}
+
+/* ---------- dups / groups */
+.dgroup{margin-bottom:12px;overflow:hidden}
+.dg-h{display:flex;align-items:center;gap:10px;padding:11px 14px;border-bottom:1px solid var(--line);flex-wrap:wrap}
+.dg-h b{font-family:var(--mono)}
+.dg-h .sp{flex:1}
+
+/* ---------- progress tab */
+.kpis{display:grid;grid-template-columns:repeat(auto-fill,minmax(min(100%,220px),1fr));gap:12px;margin-bottom:14px}
+.kpi{padding:16px 18px;display:flex;flex-direction:column;gap:4px}
+.kpi small{color:var(--muted);font-size:11.5px;font-weight:800;text-transform:uppercase;letter-spacing:.07em}
+.kpi b{font-family:var(--display);font-size:26px;letter-spacing:-.025em;line-height:1.15}
+.kpi span{color:var(--muted);font-size:12.5px;font-weight:600}
+.kpi.hero b{color:var(--accent-text)}
+.chart-card{padding:18px 18px 10px;margin-bottom:14px}
+.chart-card h3,.pcard h3{margin:0 0 4px;font-size:15px;font-weight:800;display:flex;align-items:center;gap:8px}
+.chart-card p{margin:0 0 10px;color:var(--muted);font-size:12.5px;font-weight:600}
+#chart{width:100%;height:240px;position:relative}
+#chart svg{display:block;width:100%;height:100%;overflow:visible}
+#chart .ax{fill:var(--dim);font:600 11px var(--mono)}
+#chart .gl{stroke:var(--line);stroke-dasharray:3 5}
+#chart .ln{fill:none;stroke:var(--accent);stroke-width:2.4;stroke-linejoin:round;stroke-linecap:round}
+#chart .ev{fill:var(--card);stroke:var(--accent);stroke-width:2.5;cursor:pointer}
+#chart .ev.del{stroke:var(--violet)}
+#chart .evl{stroke:var(--accent);stroke-opacity:.35;stroke-dasharray:2 4}
+#chart .now{fill:var(--accent)}
+#chart .nowr{fill:var(--accent);opacity:.25;animation:pulse 1.6s ease-in-out infinite;transform-box:fill-box;transform-origin:center}
+.pgrid{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:14px;align-items:start}
+.pcard{padding:18px}
+.pcard > p{margin:0 0 12px;color:var(--muted);font-size:12.5px;font-weight:600}
+.delta{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:4px 12px;padding:9px 0;border-bottom:1px solid var(--line);align-items:center;cursor:pointer}
+.delta:last-child{border-bottom:0}
+.delta:hover b{color:var(--accent-text)}
+.delta b{font-weight:700;font-size:13px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.delta small{grid-column:1;color:var(--dim);font-size:11.5px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;direction:rtl;text-align:left}
+.delta .dv{grid-row:1/3;grid-column:2;font-family:var(--mono);font-weight:600;font-size:13.5px;text-align:right}
+.delta .dv.up{color:var(--bad)} .delta .dv.down{color:var(--ok)}
+.delta .db{grid-column:1/3;height:4px;border-radius:99px;background:var(--track);overflow:hidden}
+.delta .db i{display:block;height:100%;border-radius:99px}
+.tl{list-style:none;margin:0;padding:0;position:relative}
+.tl::before{content:'';position:absolute;left:15px;top:6px;bottom:6px;width:2px;background:var(--line)}
+.tl li{display:grid;grid-template-columns:32px minmax(0,1fr) auto;gap:10px;padding:8px 0;align-items:start;position:relative}
+.tl .dot{width:32px;height:32px;border-radius:10px;display:grid;place-items:center;background:var(--card-2);border:1px solid var(--line-2);color:var(--c,var(--accent-text));z-index:1}
+.tl b{display:block;font-size:13px;line-height:1.35}
+.tl small{color:var(--dim);font-size:11.5px;font-weight:600}
+.tl .v{font-family:var(--mono);font-weight:600;color:var(--accent-text);white-space:nowrap}
+
+/* ---------- modal / live progress */
+.scrim{position:fixed;inset:0;z-index:80;background:rgba(4,6,8,.62);backdrop-filter:blur(4px);display:none;align-items:center;justify-content:center;padding:16px}
+.scrim.on{display:flex;animation:fade .18s}
+.modal{width:min(580px,100%);max-height:calc(100vh - 32px);overflow:auto;padding:22px}
+.modal h3{margin:0 0 6px;font-family:var(--display);font-size:19px;letter-spacing:-.02em}
+.modal .m-body{color:var(--muted);font-weight:600}
+.modal .m-body ul.plain{margin:10px 0;padding:0;list-style:none;max-height:200px;overflow:auto;border:1px solid var(--line);border-radius:12px}
+.modal .m-body ul.plain li{display:flex;justify-content:space-between;gap:12px;padding:8px 12px;border-bottom:1px solid var(--line);font-size:12.5px}
+.modal .m-body ul.plain li:last-child{border-bottom:0}
+.modal .m-body ul.plain li span:first-child{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--text)}
+.modal .m-acts{display:flex;gap:8px;justify-content:flex-end;margin-top:18px;flex-wrap:wrap}
+.opt{display:flex;gap:12px;align-items:flex-start;padding:12px 14px;border:1.5px solid var(--line-2);border-radius:13px;margin-top:8px;cursor:pointer}
+.opt:has(input:checked){border-color:var(--accent-2);background:var(--accent-soft)}
+.opt input{margin-top:3px;accent-color:var(--accent-2)}
+.opt b{color:var(--text);display:block}
+.opt span{font-size:12.5px}
+.big-total{font-family:var(--display);font-size:32px;color:var(--text);letter-spacing:-.03em;margin:6px 0 2px;line-height:1.1}
+.warnbox{margin-top:10px;padding:10px 12px;border-radius:11px;background:var(--warn-soft);color:var(--warn);font-size:12.5px}
+.infobox{margin-top:10px;padding:10px 12px;border-radius:11px;background:var(--info-soft);color:var(--info);font-size:12.5px}
+.live{text-align:center;padding:6px 0 0}
+.live-num{font-family:var(--display);font-weight:700;font-size:44px;letter-spacing:-.04em;color:var(--accent-text);line-height:1}
+.live-sub{color:var(--muted);font-weight:700;margin-top:6px;font-size:13px}
+.live .prog-line{height:8px;margin:16px 0 4px}
+.live-items{list-style:none;margin:14px 0 0;padding:0;text-align:left;max-height:240px;overflow:auto}
+.live-items li{display:grid;grid-template-columns:22px minmax(0,1fr) auto;gap:10px;align-items:center;padding:7px 2px;border-bottom:1px solid var(--line);font-size:13px}
+.live-items li:last-child{border-bottom:0}
+.live-items li span:nth-child(2){overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--text)}
+.live-items li .mono{font-size:12px}
+.live-items li.wait{opacity:.5}
+.live-items li.done .mono{color:var(--accent-text)}
+.st{width:18px;height:18px;border-radius:50%;display:grid;place-items:center}
+.st.run{border:2.5px solid var(--line-2);border-top-color:var(--accent);animation:rot .7s linear infinite}
+.st.done{background:var(--accent);color:var(--accent-ink)}
+.st.done svg{width:12px;height:12px;stroke-width:3}
+.st.wait{border:2px dashed var(--line-2)}
+.st.skip{background:var(--line);color:var(--muted)}
+.live-cur{font-family:var(--mono);font-size:11px;color:var(--dim);margin-top:10px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;direction:rtl;text-align:left;min-height:16px}
+.done-box{text-align:center;position:relative;padding:10px 0 4px}
+.done-box .ring{position:absolute;left:50%;top:38px;width:120px;height:120px;margin:-60px 0 0 -60px;border-radius:50%;border:2px solid var(--accent);opacity:0;animation:burst 1.1s ease-out .1s}
+@keyframes burst{0%{transform:scale(.3);opacity:.9}100%{transform:scale(2.4);opacity:0}}
+.done-box .live-num{animation:pop .5s cubic-bezier(.2,1.4,.4,1)}
+@keyframes pop{0%{transform:scale(.6);opacity:0}100%{transform:none;opacity:1}}
+.ba{display:grid;gap:8px;margin-top:16px;text-align:left}
+.ba div{display:grid;grid-template-columns:70px minmax(0,1fr) 84px;gap:10px;align-items:center;font-size:12.5px;font-weight:700}
+.ba .bar{height:10px;border-radius:99px;background:var(--track);overflow:hidden}
+.ba .bar i{display:block;height:100%;border-radius:99px;background:var(--dim);transition:width 1s cubic-bezier(.2,.8,.2,1)}
+.ba .now .bar i{background:var(--accent)}
+.ba .mono{text-align:right}
+.toasts{position:fixed;right:16px;bottom:16px;z-index:90;display:flex;flex-direction:column;gap:8px;max-width:min(420px,calc(100vw - 32px))}
+.toast{padding:12px 14px;border-radius:13px;background:var(--card-2);border:1px solid var(--line-2);box-shadow:0 18px 40px -16px rgba(0,0,0,.6);font-weight:650;display:flex;gap:10px;align-items:flex-start;animation:fade .2s}
+.toast.ok svg{color:var(--ok)} .toast.bad svg{color:var(--bad)} .toast.warn svg{color:var(--warn)}
+.selbar{position:fixed;left:50%;bottom:16px;transform:translate(-50%,140%);z-index:70;display:flex;align-items:center;gap:12px;padding:10px 10px 10px 18px;border-radius:16px;
+  background:var(--text);color:var(--bg);box-shadow:0 24px 60px -20px rgba(0,0,0,.7);transition:transform .25s cubic-bezier(.2,.8,.2,1);max-width:calc(100vw - 24px)}
+.selbar.on{transform:translate(-50%,0)}
+.selbar b{font-family:var(--display)}
+.selbar .btn{height:36px}
+.selbar .btn.ghost{color:var(--bg);border-color:color-mix(in oklab,var(--bg) 30%,transparent)}
+.selbar .btn.ghost:hover{background:color-mix(in oklab,var(--bg) 12%,transparent)}
+.overlay{position:fixed;inset:0;z-index:100;background:var(--bg);display:none;place-content:center;text-align:center;gap:10px;padding:20px}
+.overlay.on{display:grid}
+.overlay h2{font-family:var(--display);margin:0}
+.spin{width:34px;height:34px;border-radius:50%;border:3px solid var(--line-2);border-top-color:var(--accent);animation:rot .8s linear infinite;margin:0 auto 6px}
+@keyframes rot{to{transform:rotate(360deg)}}
+
+/* ---------- responsive */
+@media (max-width:1060px){
+  .hero{grid-template-columns:1fr}
+  .types,.pgrid{grid-template-columns:1fr}
+  .diag-head{grid-template-columns:1fr}
+}
+@media (max-width:720px){
+  .wrap{padding-top:14px}
+  .brand span{display:none}
+  .drive{grid-template-columns:1fr;justify-items:center;text-align:center;gap:14px;padding:20px 16px}
+  .drive .eyebrow,.drive .legend{justify-content:center}
+  .drive .health{text-align:left}
+  .donut-wrap{width:210px;height:210px}
+  .tiles{gap:10px}
+  .tile{min-height:140px;padding:14px}
+  .lhead{display:none}
+  .row{grid-template-columns:28px minmax(0,1fr) auto;grid-template-areas:"ck nm sz" "ck meta acts";row-gap:0;padding:6px 12px}
+  .row .meta{justify-content:flex-start;padding-left:43px}
+  .row .dt{display:none}
+  .row .nm{padding:4px 0}
+  .srow{grid-template-columns:24px minmax(0,1fr) auto;padding:12px 14px}
+  .srow .s-btn{display:none}
+  .stickybar{flex-wrap:wrap}
+  .panel-head h2{font-size:18px}
+  .selbar{left:12px;right:12px;transform:translateY(140%);border-radius:14px}
+  .selbar.on{transform:none}
+  .search{max-width:none}
+  .strip{height:34px}
+  .strip > div span{display:none}
+  .diag-head{padding:18px}
+  .live-num{font-size:36px}
+}
+@media (max-width:420px){
+  .tiles{grid-template-columns:1fr 1fr}
+  .tile .t-v{font-size:19px}
+  .top .btn span{display:none}
+  .g-stats{grid-template-columns:1fr 1fr}
+}
+@media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+/* ---------- additions: language switch, footer, demo badge, cover fallback */
+.lang{display:inline-flex;border:1px solid var(--line-2);border-radius:10px;padding:2px;gap:2px}
+.lang button{border:0;background:transparent;color:var(--muted);font-weight:800;font-size:12px;padding:4px 9px;border-radius:7px;cursor:pointer;letter-spacing:.04em}
+.lang button.on{background:var(--text);color:var(--bg)}
+.pill.demo{color:var(--warn);background:var(--warn-soft);border-color:transparent}
+.foot{margin-top:56px;padding:22px 2px 0;border-top:1px solid var(--line);display:flex;flex-wrap:wrap;gap:10px 18px;align-items:center;color:var(--muted);font-size:12.5px;font-weight:650}
+.foot a{color:var(--text);text-decoration:none;display:inline-flex;align-items:center;gap:6px}
+.foot a:hover{color:var(--accent-text)}
+.foot .brandline{display:flex;align-items:center;gap:10px;color:var(--text)}
+.foot .brandline b{font-family:var(--display);letter-spacing:.02em}
+.foot .sp{flex:1}
+.g-cover .g-ph{position:absolute;inset:0;display:grid;place-items:center;font-family:var(--display);font-size:64px;font-weight:700;color:rgba(255,255,255,.16);letter-spacing:-.04em;
+  background:radial-gradient(120% 140% at 0% 0%,var(--gc1),transparent 60%),radial-gradient(120% 140% at 100% 100%,var(--gc2),transparent 60%),#15131c}
+@media (max-width:720px){ .lang button{padding:4px 7px} .foot{flex-direction:column;align-items:flex-start}
+  .top{gap:6px;padding-left:12px;padding-right:12px} .brand{flex:none} #adminPill{display:none} .pill.demo .dl{display:none} .top .btn.violet span{display:none} .top .btn.violet{padding:0 9px} }
+@media (max-width:380px){ .brand b{display:none} }
+</style>
+</head>
+<body>
+<header class="top">
+  <div class="brand">
+    <div class="logo"><img src="assets/icon.png" width="22" height="22" alt=""></div>
+    <b>XOTIRA</b><span data-t="brandSub"></span>
+  </div>
+  <div class="sp"></div>
+  <span id="demoPill" class="pill demo" style="display:none"><b>DEMO</b><span class="dl" data-t="demoPill"></span></span>
+  <span id="livePill" class="pill live" style="display:none"></span>
+  <span id="connPill" class="pill off" style="display:none" data-t="serverOff"></span>
+  <span id="adminPill" class="pill"></span>
+  <button class="btn sm violet" id="elevateBtn" style="display:none" data-tt="elevateTip"><svg class="i sm"><use href="#i-shield"/></svg><span data-t="fullAccess"></span></button>
+  <div class="lang" id="langSw"><button data-lang="uz">UZ</button><button data-lang="en">EN</button></div>
+  <button class="ib" id="themeBtn" data-tt="themeTip"><svg class="i"><use href="#i-sun"/></svg></button>
+  <div class="topline" id="topline"><i></i></div>
+</header>
+
+<main class="wrap">
+  <section class="hero">
+    <article class="card drive" id="driveCard">
+      <div class="donut-wrap" id="donutWrap">
+        <svg class="donut" id="donut" viewBox="0 0 200 200"><circle class="trk" cx="100" cy="100" r="80"/></svg>
+        <div class="d-center" id="dCenter"><b>—</b><span data-t="loading"></span></div>
+      </div>
+      <div class="drive-meta" style="min-width:0;width:100%">
+        <div class="eyebrow" id="driveEyebrow"></div>
+        <h1 id="driveFree">—</h1>
+        <p class="sub" id="driveSub"></p>
+        <div class="health" id="driveHealth" style="display:none"></div>
+        <div class="legend" id="driveLegend"></div>
+      </div>
+    </article>
+    <div class="tiles">
+      <article class="card tile accent click" data-go="smart">
+        <div class="t-h"><svg class="i sm"><use href="#i-sparkles"/></svg><span data-t="tileSafe"></span></div>
+        <div class="t-v" id="reclaimV">…</div>
+        <div class="t-s" id="reclaimS"></div>
+        <div class="t-a"><button class="btn sm primary" data-t="goClean"></button></div>
+      </article>
+      <article class="card tile" id="tileScan">
+        <div class="t-h"><svg class="i sm"><use href="#i-hdd"/></svg><span data-t="tileScan"></span></div>
+        <div class="scan-row">
+          <svg class="mini-ring" viewBox="0 0 46 46" id="scanRing" style="display:none"><circle class="trk" cx="23" cy="23" r="19"/><circle class="fg" cx="23" cy="23" r="19" stroke-dasharray="0 120"/></svg>
+          <div style="min-width:0"><div class="t-v" id="scanV">—</div><div class="t-s" id="scanS"></div></div>
+        </div>
+        <div class="scan-cur" id="scanCur"></div>
+        <div class="t-a" id="scanActs"></div>
+      </article>
+      <article class="card tile" id="tileRecycle">
+        <div class="t-h"><svg class="i sm"><use href="#i-trash"/></svg><span data-t="tileRecycle"></span></div>
+        <div class="t-v" id="recV">—</div>
+        <div class="t-s" id="recS"></div>
+        <div class="t-a"><button class="btn sm" id="recBtn" data-t="empty"></button></div>
+      </article>
+      <article class="card tile click" data-go="progress">
+        <div class="t-h"><svg class="i sm"><use href="#i-trend"/></svg><span data-t="tileProgress"></span></div>
+        <div class="t-v" id="freedV">0 B</div>
+        <div class="t-s" id="freedS"></div>
+        <svg class="spark" id="spark" preserveAspectRatio="none"></svg>
+      </article>
+    </div>
+  </section>
+
+  <div class="sec-title"><svg class="i sm"><use href="#i-search"/></svg><span data-t="whyFull"></span><span class="line"></span></div>
+  <section id="diag">
+    <div class="card diag-head">
+      <div><h2 id="diagTitle"><span class="skel" style="display:block;height:22px;width:80%"></span></h2><p id="diagSub"></p></div>
+      <div class="wins" id="diagWins"></div>
+    </div>
+    <div class="strip" id="diagStrip"></div>
+    <div class="bgrid" id="diagGrid"></div>
+  </section>
+
+  <div class="sec-title"><svg class="i sm"><use href="#i-zap"/></svg><span data-t="adviceTitle"></span><span class="line"></span></div>
+  <section class="advice" id="advice"></section>
+
+  <nav class="tabs" id="tabs">
+    <button class="tab on" data-tab="smart"><svg class="i"><use href="#i-sparkles"/></svg><span data-t="tabSmart"></span></button>
+    <button class="tab" data-tab="games"><svg class="i"><use href="#i-game"/></svg><span data-t="tabGames"></span><span class="cnt" id="gamesCnt" style="display:none"></span></button>
+    <button class="tab" data-tab="map"><svg class="i"><use href="#i-grid"/></svg><span data-t="tabMap"></span></button>
+    <button class="tab" data-tab="big"><svg class="i"><use href="#i-file"/></svg><span data-t="tabBig"></span></button>
+    <button class="tab" data-tab="progress"><svg class="i"><use href="#i-trend"/></svg><span data-t="tabProgress"></span></button>
+    <button class="tab" data-tab="types"><svg class="i"><use href="#i-layers"/></svg><span data-t="tabTypes"></span></button>
+    <button class="tab" data-tab="dups"><svg class="i"><use href="#i-copy"/></svg><span data-t="tabDups"></span></button>
+    <button class="tab" data-tab="dev"><svg class="i"><use href="#i-code"/></svg><span data-t="tabDev"></span></button>
+    <button class="tab" data-tab="downloads"><svg class="i"><use href="#i-download"/></svg><span data-t="tabDownloads"></span></button>
+    <button class="tab" data-tab="apps"><svg class="i"><use href="#i-package"/></svg><span data-t="tabApps"></span></button>
+  </nav>
+
+  <section class="panel on" data-panel="smart">
+    <div class="panel-head">
+      <div><h2 data-t="tabSmart"></h2><p data-t="smartLead"></p></div>
+      <div class="head-actions"><button class="btn sm" id="smartRefresh"><svg class="i sm"><use href="#i-refresh"/></svg><span data-t="remeasure"></span></button></div>
+    </div>
+    <div class="sgroups" id="sgroups"></div>
+    <div class="clean-note" id="cleanNote"></div>
+    <div class="stickybar" id="smartBar">
+      <div class="sb-t"><span data-t="selected"></span>: <b id="smartSelV">0 B</b> <span class="muted" id="smartSelN"></span></div>
+      <div class="sp"></div>
+      <button class="btn sm ghost" id="smartAll" data-t="selectSafe"></button>
+      <button class="btn primary" id="smartClean"><svg class="i sm"><use href="#i-sparkles"/></svg><span data-t="clean"></span></button>
+    </div>
+    <div class="sec-title" id="toolsTitle" style="margin-top:30px"><svg class="i sm"><use href="#i-wrench"/></svg><span data-t="winTools"></span><span class="line"></span></div>
+    <div class="tools" id="tools"></div>
+  </section>
+
+  <section class="panel" data-panel="games">
+    <div class="panel-head">
+      <div><h2 data-t="tabGames"></h2><p data-t="gamesLead"></p></div>
+      <div class="head-actions"><button class="btn sm" id="gamesRefresh"><svg class="i sm"><use href="#i-refresh"/></svg><span data-t="refresh"></span></button></div>
+    </div>
+    <div class="g-sum" id="gSum"></div>
+    <div class="ggrid" id="gGrid"></div>
+  </section>
+
+  <section class="panel" data-panel="map">
+    <div class="panel-head">
+      <div style="min-width:0"><div class="crumbs" id="crumbs"></div><div class="map-sum" id="mapSum"></div></div>
+      <div class="head-actions">
+        <button class="btn sm" id="mapUp"><svg class="i sm"><use href="#i-up"/></svg><span data-t="up"></span></button>
+        <button class="btn sm" id="mapReveal"><svg class="i sm"><use href="#i-out"/></svg>Explorer</button>
+        <button class="btn sm" id="mapScan"><svg class="i sm"><use href="#i-refresh"/></svg><span data-t="scanHere"></span></button>
+      </div>
+    </div>
+    <div class="treemap" id="treemap"></div>
+    <div class="card list" id="mapList"></div>
+  </section>
+
+  <section class="panel" data-panel="big">
+    <div class="panel-head"><div><h2 data-t="tabBig"></h2><p id="bigSum"></p></div></div>
+    <div class="filters" id="bigChips"></div>
+    <div class="filters">
+      <input class="search" id="bigQ" data-tp="bigSearch">
+      <select class="sel-in" id="bigScope"><option value="user" data-t="scopeUser"></option><option value="all" data-t="scopeAll"></option></select>
+      <select class="sel-in" id="bigAge"><option value="0" data-t="ageAny"></option><option value="-1" data-t="age24h"></option><option value="-7" data-t="age7d"></option><option value="90" data-t="age3m"></option><option value="180" data-t="age6m"></option><option value="365" data-t="age1y"></option><option value="730" data-t="age2y"></option></select>
+      <select class="sel-in" id="bigMin"><option value="0">≥ 1 MB</option><option value="104857600">≥ 100 MB</option><option value="524288000">≥ 500 MB</option><option value="1073741824">≥ 1 GB</option><option value="5368709120">≥ 5 GB</option></select>
+    </div>
+    <div class="card list" id="bigList"></div>
+  </section>
+
+  <section class="panel" data-panel="progress">
+    <div class="panel-head">
+      <div><h2 data-t="tabProgress"></h2><p data-t="progLead"></p></div>
+      <div class="head-actions"><button class="btn sm" id="progRefresh"><svg class="i sm"><use href="#i-refresh"/></svg><span data-t="refresh"></span></button></div>
+    </div>
+    <div class="kpis" id="kpis"></div>
+    <div class="card chart-card"><h3><svg class="i sm"><use href="#i-trend"/></svg><span data-t="chartTitle"></span></h3><p data-t="chartSub"></p><div id="chart"></div></div>
+    <div class="pgrid">
+      <div class="card pcard"><h3><svg class="i sm"><use href="#i-layers"/></svg><span data-t="whatChanged"></span></h3><p id="growSub"></p><div id="growth"></div></div>
+      <div class="card pcard"><h3><svg class="i sm"><use href="#i-clock"/></svg><span data-t="history"></span></h3><p data-t="historySub"></p><ul class="tl" id="timeline"></ul></div>
+    </div>
+  </section>
+
+  <section class="panel" data-panel="types">
+    <div class="panel-head"><div><h2 data-t="tabTypes"></h2><p data-t="typesLead"></p></div></div>
+    <div class="types"><div class="card list" id="typeCats"></div><div class="card list" id="typeExts"></div></div>
+  </section>
+
+  <section class="panel" data-panel="dups">
+    <div class="panel-head">
+      <div><h2 data-t="dupsTitle"></h2><p data-t="dupsLead"></p></div>
+      <div class="head-actions"><button class="btn sm" id="dupSmart" style="display:none"><svg class="i sm"><use href="#i-zap"/></svg><span data-t="smartPick"></span></button><button class="btn primary sm" id="dupRun"><svg class="i sm"><use href="#i-search"/></svg><span data-t="findDups"></span></button></div>
+    </div>
+    <div id="dupBody"></div>
+  </section>
+
+  <section class="panel" data-panel="dev">
+    <div class="panel-head">
+      <div><h2 data-t="devTitle"></h2><p data-th="devLead"></p></div>
+      <div class="head-actions"><button class="btn sm" id="devOld"><svg class="i sm"><use href="#i-zap"/></svg><span data-t="devOld"></span></button></div>
+    </div>
+    <div class="card list" id="devList"></div>
+  </section>
+
+  <section class="panel" data-panel="downloads">
+    <div class="panel-head"><div><h2 data-t="dlTitle"></h2><p id="dlSum"></p></div>
+      <div class="head-actions"><button class="btn sm" id="dlRefresh"><svg class="i sm"><use href="#i-refresh"/></svg><span data-t="refresh"></span></button></div></div>
+    <div id="dlBody"></div>
+  </section>
+
+  <section class="panel" data-panel="apps">
+    <div class="panel-head"><div><h2 data-t="appsTitle"></h2><p id="appSum"></p></div>
+      <div class="head-actions"><input class="search" id="appQ" data-tp="appSearch"></div></div>
+    <div class="card list" id="appList"></div>
+  </section>
+
+  <footer class="foot">
+    <div class="brandline"><img src="assets/icon.png" width="26" height="26" alt=""><b>XOTIRA</b><span class="muted" id="footVer"></span></div>
+    <span><span data-t="author"></span>: <b style="color:var(--text)">Humoyun Safarov</b></span>
+    <a href="https://t.me/humoyunsafarov" target="_blank" rel="noopener"><svg class="i sm"><use href="#i-chat"/></svg>@humoyunsafarov</a>
+    <a href="https://t.me/neyroai" target="_blank" rel="noopener"><svg class="i sm"><use href="#i-zap"/></svg><span data-t="channel"></span> @neyroai</a>
+    <a id="repoLink" href="#" target="_blank" rel="noopener" style="display:none"><svg class="i sm"><use href="#i-code"/></svg>GitHub</a>
+    <span class="sp"></span>
+    <span data-t="privacyLine"></span>
+  </footer>
+</main>
+
+<div class="selbar" id="selbar">
+  <div><b id="selN">0</b> <span id="selWord"></span> · <span class="mono" id="selV">0 B</span></div>
+  <button class="btn sm ghost" id="selClear" data-t="cancel"></button>
+  <button class="btn sm danger" id="selDel"><svg class="i sm"><use href="#i-trash"/></svg><span data-t="deleteDots"></span></button>
+</div>
+<div class="scrim" id="scrim"><div class="card modal" id="modal" role="dialog" aria-modal="true"></div></div>
+<div class="toasts" id="toasts"></div>
+<div class="tip" id="tip"></div>
+<div class="overlay" id="overlay"><div class="spin"></div><h2 data-t="ovTitle"></h2><p class="muted" id="ovS" data-t="ovSub"></p></div>
+
+<svg width="0" height="0" style="position:absolute">
+  <symbol id="i-folder" viewBox="0 0 24 24"><path d="M20 20a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.9a2 2 0 0 1-1.69-.9L9.6 3.9A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2Z"/></symbol>
+  <symbol id="i-file" viewBox="0 0 24 24"><path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"/><path d="M14 2v4a2 2 0 0 0 2 2h4"/></symbol>
+  <symbol id="i-doc" viewBox="0 0 24 24"><path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"/><path d="M14 2v4a2 2 0 0 0 2 2h4M8 13h8M8 17h6"/></symbol>
+  <symbol id="i-trash" viewBox="0 0 24 24"><path d="M3 6h18M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2M10 11v6M14 11v6"/></symbol>
+  <symbol id="i-out" viewBox="0 0 24 24"><path d="M15 3h6v6M10 14 21 3M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/></symbol>
+  <symbol id="i-eye" viewBox="0 0 24 24"><path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z"/><circle cx="12" cy="12" r="3"/></symbol>
+  <symbol id="i-search" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></symbol>
+  <symbol id="i-refresh" viewBox="0 0 24 24"><path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8"/><path d="M21 3v5h-5M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16"/><path d="M8 16H3v5"/></symbol>
+  <symbol id="i-shield" viewBox="0 0 24 24"><path d="M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1z"/><path d="m9 12 2 2 4-4"/></symbol>
+  <symbol id="i-sparkles" viewBox="0 0 24 24"><path d="M12 3l1.9 5.1L19 10l-5.1 1.9L12 17l-1.9-5.1L5 10l5.1-1.9z"/><path d="M19 15l.8 2.2L22 18l-2.2.8L19 21l-.8-2.2L16 18l2.2-.8zM5 2l.6 1.4L7 4l-1.4.6L5 6l-.6-1.4L3 4l1.4-.6z"/></symbol>
+  <symbol id="i-zap" viewBox="0 0 24 24"><path d="M13 2 3 14h9l-1 8 10-12h-9l1-8z"/></symbol>
+  <symbol id="i-grid" viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="9" rx="1.5"/><rect x="14" y="3" width="7" height="5" rx="1.5"/><rect x="14" y="12" width="7" height="9" rx="1.5"/><rect x="3" y="16" width="7" height="5" rx="1.5"/></symbol>
+  <symbol id="i-copy" viewBox="0 0 24 24"><rect x="8" y="8" width="14" height="14" rx="2"/><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"/></symbol>
+  <symbol id="i-code" viewBox="0 0 24 24"><path d="m16 18 6-6-6-6M8 6l-6 6 6 6"/></symbol>
+  <symbol id="i-download" viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3"/></symbol>
+  <symbol id="i-package" viewBox="0 0 24 24"><path d="M11 21.73a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73z"/><path d="M12 22V12M3.3 7 12 12l8.7-5"/></symbol>
+  <symbol id="i-up" viewBox="0 0 24 24"><path d="m5 12 7-7 7 7M12 19V5"/></symbol>
+  <symbol id="i-x" viewBox="0 0 24 24"><path d="M18 6 6 18M6 6l12 12"/></symbol>
+  <symbol id="i-check" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="m8 12 3 3 5-6"/></symbol>
+  <symbol id="i-tick" viewBox="0 0 24 24"><path d="M20 6 9 17l-5-5"/></symbol>
+  <symbol id="i-lock" viewBox="0 0 24 24"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></symbol>
+  <symbol id="i-sun" viewBox="0 0 24 24"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M6.34 17.66l-1.41 1.41M19.07 4.93l-1.41 1.41"/></symbol>
+  <symbol id="i-moon" viewBox="0 0 24 24"><path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z"/></symbol>
+  <symbol id="i-alert" viewBox="0 0 24 24"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3"/><path d="M12 9v4M12 17h.01"/></symbol>
+  <symbol id="i-hdd" viewBox="0 0 24 24"><path d="M22 12H2"/><path d="M5.45 5.11 2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.45-6.89A2 2 0 0 0 16.76 4H7.24a2 2 0 0 0-1.79 1.11zM6 16h.01M10 16h.01"/></symbol>
+  <symbol id="i-film" viewBox="0 0 24 24"><rect x="2" y="3" width="20" height="18" rx="2"/><path d="M7 3v18M17 3v18M2 12h20M2 7.5h5M2 16.5h5M17 16.5h5M17 7.5h5"/></symbol>
+  <symbol id="i-image" viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="9" cy="9" r="2"/><path d="m21 15-3.09-3.09a2 2 0 0 0-2.82 0L6 21"/></symbol>
+  <symbol id="i-music" viewBox="0 0 24 24"><path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/></symbol>
+  <symbol id="i-archive" viewBox="0 0 24 24"><rect x="2" y="3" width="20" height="5" rx="1"/><path d="M4 8v11a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8M10 12h4"/></symbol>
+  <symbol id="i-cpu" viewBox="0 0 24 24"><rect x="4" y="4" width="16" height="16" rx="2"/><rect x="9" y="9" width="6" height="6" rx="1"/><path d="M15 2v2M15 20v2M2 15h2M2 9h2M20 15h2M20 9h2M9 2v2M9 20v2"/></symbol>
+  <symbol id="i-box" viewBox="0 0 24 24"><path d="M21 8 12 3 3 8v8l9 5 9-5z"/><path d="m3 8 9 5 9-5M12 13v8"/></symbol>
+  <symbol id="i-globe" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M12 2a14.5 14.5 0 0 0 0 20 14.5 14.5 0 0 0 0-20M2 12h20"/></symbol>
+  <symbol id="i-win" viewBox="0 0 24 24"><path d="M3 5.6 10 4.6V11.5H3zM12.5 4.2 21 3v8.5h-8.5zM3 13h7v6.9l-7-1zM12.5 13H21v8l-8.5-1.2z"/></symbol>
+  <symbol id="i-chat" viewBox="0 0 24 24"><path d="M7.9 20A9 9 0 1 0 4 16.1L2 22Z"/></symbol>
+  <symbol id="i-wrench" viewBox="0 0 24 24"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/></symbol>
+  <symbol id="i-layers" viewBox="0 0 24 24"><path d="m12.83 2.18 8.58 3.91a1 1 0 0 1 0 1.83l-8.58 3.9a2 2 0 0 1-1.66 0L2.6 7.91a1 1 0 0 1 0-1.83l8.58-3.9a2 2 0 0 1 1.66 0Z"/><path d="m22 17.65-9.17 4.16a2 2 0 0 1-1.66 0L2 17.65M22 12.65l-9.17 4.16a2 2 0 0 1-1.66 0L2 12.65"/></symbol>
+  <symbol id="i-moon2" viewBox="0 0 24 24"><path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z"/><path d="M19 3v4M17 5h4"/></symbol>
+  <symbol id="i-stop" viewBox="0 0 24 24"><rect x="6" y="6" width="12" height="12" rx="2"/></symbol>
+  <symbol id="i-right" viewBox="0 0 24 24"><path d="M5 12h14M13 6l6 6-6 6"/></symbol>
+  <symbol id="i-trend" viewBox="0 0 24 24"><path d="M22 7 13.5 15.5 8.5 10.5 2 17"/><path d="M16 7h6v6"/></symbol>
+  <symbol id="i-clock" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></symbol>
+  <symbol id="i-game" viewBox="0 0 24 24"><path d="M6 11h4M8 9v4M15 12h.01M18 10h.01"/><path d="M17.32 5H6.68a4 4 0 0 0-3.98 3.59C2.6 9.42 2 14.46 2 16a3 3 0 0 0 3 3c1 0 1.5-.5 2-1l1.41-1.41A2 2 0 0 1 9.83 16h4.34a2 2 0 0 1 1.41.59L17 18c.5.5 1 1 2 1a3 3 0 0 0 3-3c0-1.55-.6-6.58-.68-7.26A4 4 0 0 0 17.32 5z"/></symbol>
+</svg>
+
+<script>
+'use strict';
+/* ================================================================ i18n — every UI string in both languages, side by side */
+const STR = {
+  brandSub: ['disk boshqaruvi', 'disk manager'],
+  demoPill: [' — soxta maʼlumot', ' — sample data'],
+  serverOff: ['Server oʻchiq', 'Server offline'],
+  elevateTip: ['Windows tizim keshlarini ham tozalash uchun administrator ruxsati', 'Administrator rights to also clean Windows system caches'],
+  fullAccess: ['Toʻliq ruxsat', 'Full access'],
+  themeTip: ['Mavzu', 'Theme'],
+  loading: ['yuklanmoqda', 'loading'],
+  tileSafe: ['Xavfsiz boʻshatish', 'Safe to free'],
+  goClean: ['Tozalashga oʻtish', 'Go to cleanup'],
+  tileScan: ['Disk skani', 'Disk scan'],
+  tileRecycle: ['Savat', 'Recycle Bin'],
+  empty: ['Boʻshatish', 'Empty'],
+  tileProgress: ['Progress', 'Progress'],
+  whyFull: ['Nega joy band?', 'Why is my disk full?'],
+  adviceTitle: ['Aqlli tavsiyalar', 'Smart suggestions'],
+  tabSmart: ['Aqlli tozalash', 'Smart cleanup'], tabGames: ['Oʻyinlar', 'Games'], tabMap: ['Xarita', 'Map'],
+  tabBig: ['Katta fayllar', 'Large files'], tabProgress: ['Progress', 'Progress'], tabTypes: ['Fayl turlari', 'File types'],
+  tabDups: ['Dublikatlar', 'Duplicates'], tabDev: ['Dasturchi', 'Developer'], tabDownloads: ['Yuklamalar', 'Downloads'], tabApps: ['Dasturlar', 'Apps'],
+  smartLead: ['Keshlar, vaqtinchalik va keraksiz tizim fayllari. Hujjat, rasm, video kabi shaxsiy fayllaringizga tegilmaydi.', 'Caches, temporary and leftover system files. Your documents, photos and videos are never touched.'],
+  remeasure: ['Qayta oʻlchash', 'Measure again'], selected: ['Tanlandi', 'Selected'], selectSafe: ['Xavfsizlarni tanlash', 'Select safe ones'],
+  clean: ['Tozalash', 'Clean'], winTools: ['Windows vositalari', 'Windows tools'], refresh: ['Yangilash', 'Refresh'],
+  gamesLead: ['Oʻyinlar odatda eng koʻp joy oladi. Steam orqali oʻchirish xavfsiz: saqlanishlar bulutda qoladi, xohlagan payt qayta oʻrnatasiz.', 'Games usually take the most space. Uninstalling through Steam is safe: saves stay in the cloud and you can reinstall any time.'],
+  up: ['Yuqoriga', 'Up'], scanHere: ['Shu papkani skanerlash', 'Scan this folder'],
+  bigSearch: ['Nom yoki papka boʻyicha qidirish…', 'Search by name or folder…'],
+  scopeUser: ['Faqat mening fayllarim', 'Only my files'], scopeAll: ['Barcha fayllar (tizim ham)', 'All files (incl. system)'],
+  ageAny: ['Har qanday sana', 'Any date'], age24h: ['Soʻnggi 24 soatda oʻzgargan', 'Changed in last 24 hours'], age7d: ['Soʻnggi 7 kunda oʻzgargan', 'Changed in last 7 days'],
+  age3m: ['3 oydan eski', 'Older than 3 months'], age6m: ['6 oydan eski', 'Older than 6 months'], age1y: ['1 yildan eski', 'Older than 1 year'], age2y: ['2 yildan eski', 'Older than 2 years'],
+  progLead: ['Qancha joy boʻshatganingiz, disk qanday oʻzgarayotgani va hozirgi surʼatda qachon toʻlishi.', 'How much you freed, how the disk is changing and when it will be full at this pace.'],
+  chartTitle: ['Boʻsh joy tarixi', 'Free space history'], chartSub: ['Har 5 daqiqada oʻlchanadi. Nuqtalar — siz qilgan tozalashlar.', 'Measured every 5 minutes. Dots are your cleanups.'],
+  whatChanged: ['Nima oʻzgardi', 'What changed'], history: ['Tarix', 'History'], historySub: ['Siz bajargan tozalash va oʻchirishlar.', 'Cleanups and deletions you made.'],
+  typesLead: ['Kengaytmalar boʻyicha taqsimot. Turni bossangiz — oʻsha turdagi eng katta fayllar ochiladi.', 'Breakdown by file extension. Click a type to see its largest files.'],
+  dupsTitle: ['Dublikat fayllar', 'Duplicate files'], dupsLead: ['Bir xil tarkibli fayllar (1 MB dan katta, shaxsiy papkalarda). Har guruhdan bittasini qoldirib, qolganini oʻchirish mumkin.', 'Files with identical content (over 1 MB, in your own folders). Keep one per group and delete the rest.'],
+  smartPick: ['Aqlli tanlash', 'Smart select'], findDups: ['Dublikatlarni qidirish', 'Find duplicates'],
+  devTitle: ['Dasturchi qoldiqlari', 'Developer leftovers'], devLead: ['Loyihalardagi node_modules, venv va build keshlari — <code>npm install</code> / <code>pip install</code> bilan qayta tiklanadi.', 'node_modules, venv and build caches in your projects — <code>npm install</code> / <code>pip install</code> brings them back.'],
+  devOld: ['90+ kun tegilmaganlarni tanlash', 'Select untouched for 90+ days'],
+  dlTitle: ['Yuklamalar tahlili', 'Downloads analysis'], appsTitle: ['Oʻrnatilgan dasturlar', 'Installed apps'], appSearch: ['Dastur qidirish…', 'Search apps…'],
+  author: ['Muallif', 'Author'], channel: ['Kanal', 'Channel'], privacyLine: ['Hech narsa internetga yuborilmaydi · MIT litsenziya', 'Nothing leaves your PC · MIT license'],
+  cancel: ['Bekor', 'Cancel'], deleteDots: ['Oʻchirish…', 'Delete…'],
+  ovTitle: ['Admin rejimda qayta ishga tushirilmoqda', 'Restarting with administrator rights'], ovSub: ['Windows soʻragan oynada “Ha” ni bosing…', 'Click “Yes” in the Windows prompt…'],
+  // dynamic
+  items: ['ta', '{n:item|items}'], selItems: ['ta tanlandi', '{n:item|items} selected'],
+  disk: ['disk', 'drive'], sysDisk: ['tizim diski', 'system drive'], free: ['boʻsh', 'free'], used: ['band', 'used'],
+  ofUsed: ['{t} dan {u} band ({p}%)', '{u} of {t} used ({p}%)'],
+  hBad: ['Joy juda kam ({p}%). Windows sekinlashadi va yangilanishlar oʻrnatilmay qolishi mumkin — kamida 15% boʻsh boʻlsin.', 'Very low on space ({p}%). Windows slows down and updates may fail — keep at least 15% free.'],
+  hWarn: ['Joy kamayib bormoqda ({p}% boʻsh). Tavsiya: kamida {x} boʻsh tuting.', 'Space is getting low ({p}% free). Keep at least {x} free.'],
+  hOk: ['Disk holati yaxshi — {p}% boʻsh.', 'Disk is healthy — {p}% free.'],
+  recItems: ['{n} ta element joy egallab turibdi', '{n} {n:item|items} still taking space'], recEmpty: ['Savat boʻsh', 'Recycle Bin is empty'],
+  normalMode: ['Oddiy rejim', 'Normal mode'], adminMode: ['Admin rejim', 'Admin mode'],
+  legendWait: ['Skan tugagach joy nimaga ketgani koʻrinadi', 'Where the space went appears after the scan'],
+  usedLbl: ['Band', 'Used'], diskPct: ['{p}% disk', '{p}% of disk'],
+  notScanned: ['Skanerlanmagan', 'Not scanned'], scanBtn: ['Skanerlash', 'Scan'], stop: ['Toʻxtatish', 'Stop'], rescan: ['Qayta skan', 'Rescan'],
+  ready: ['Tayyor', 'Done'], stopped: ['Toʻxtatildi', 'Stopped'],
+  scanRun: ['{f} fayl · {r}/s{eta}', '{f} files · {r}/s{eta}'], etaLeft: [' · ~{s} s qoldi', ' · ~{s} s left'],
+  scanDone: ['{f} fayl · {b} · {s} s{e}', '{f} files · {b} · {s} s{e}'], noAccess: [' · {n} papkaga ruxsat yoʻq', ' · {n} {n:folder|folders} not accessible'],
+  pillClean: ['Tozalanmoqda', 'Cleaning'], pillDups: ['Dublikatlar qidirilmoqda', 'Finding duplicates'], pillScan: ['Skan {p}', 'Scan {p}'],
+  scanStarted: ['Skan boshlandi: {p}', 'Scan started: {p}'], scanFinished: ['Skan tugadi: {f} fayl, {b} — {s} s', 'Scan finished: {f} files, {b} — {s} s'],
+  // diagnosis
+  diagTitle2: ['Band joyning <em>{p1}%</em>ini {b1}, <em>{p2}%</em>ini {b2} egallagan.', '<em>{p1}%</em> of the used space is {b1}, <em>{p2}%</em> is {b2}.'],
+  diagTitle1: ['Band joyning <em>{p1}%</em>ini {b1} egallagan.', '<em>{p1}%</em> of the used space is {b1}.'],
+  diagSub: ['{u} band joyni {n} toifaga ajratdim. ', 'I split {u} of used space into {n} categories. '],
+  diagWin: ['Bir necha bosishda taxminan <b style="color:var(--text)">{x}</b> boʻshatish mumkin.', 'A few clicks can free about <b style="color:var(--text)">{x}</b>.'],
+  diagClean: ['Katta ortiqcha narsa qolmadi — disk toza.', 'Nothing big left to clean — the disk is tidy.'],
+  diagScanning: ['Disk skanerlanmoqda ({p}%) — joy qayerga ketgani bir necha soniyada aniqlanadi.', 'Scanning the disk ({p}%) — where the space went will be clear in a few seconds.'],
+  diagNeedScan: ['Tahlil uchun diskni skanerlang.', 'Scan the disk to see the analysis.'],
+  quickWins: ['Tez yutuq', 'Quick wins'], shareLine: ['{a}% band joy · {b}% disk', '{a}% of used · {b}% of disk'],
+  winCache: ['Keshlar va vaqtinchalik fayllar', 'Caches and temporary files'], winGames: ['{n} ta oʻynalmagan oʻyin', '{n} unplayed {n:game|games}'],
+  winDl: ['Installyator va ochilgan arxivlar', 'Installers and extracted archives'], winRecycle: ['Savat', 'Recycle Bin'],
+  winHiber: ['Hibernatsiya fayli', 'Hibernation file'], winClaude: ['Claude Desktop ikkinchi nusxasi', 'Second Claude Desktop copy'],
+  // bucket stories
+  gText: ['{n} ta oʻyin. Eng kattasi — <b>{g}</b> ({s}).', '{n} {n:game|games}. The biggest is <b>{g}</b> ({s}).'],
+  gUnused: [' <b>{n} tasini</b> 2 oydan beri oʻynamagansiz — {s}.', ' You haven\'t played <b>{n}</b> of them in 2 months — {s}.'],
+  gAllRecent: [' Hammasini yaqinda oʻynagansiz.', ' You\'ve played all of them recently.'], gUpd: [' {g} hozir yangilanmoqda.', ' {g} is updating right now.'],
+  gFiles: ['Oʻyin fayllari: {t}.', 'Game files: {t}.'], gPillFree: ['{s} boʻshatsa boʻladi', '{s} can be freed'], gPillActive: ['Faol oʻynalmoqda', 'Actively played'], gCta: ['Oʻyinlarni koʻrish', 'See games'],
+  wText: ['Windows odatda 25–45 GB egallaydi{p}.', 'Windows usually takes 25–45 GB{p}.'], wYours: ['; sizda: {x}', '; yours: {x}'],
+  wHiber: [' Uyqu rejimini ishlatmasangiz, hibernatsiyani oʻchirib {s} olasiz.', ' If you don\'t use hibernate, turning it off frees {s}.'],
+  pBig: ['Meʼyordan katta', 'Larger than usual'], pNormal: ['Meʼyorda', 'Normal'], wCta: ['Windows vositalari', 'Windows tools'],
+  prText: ['Oʻrnatilgan dasturlar. Eng kattalari: {t}.', 'Installed programs. The largest: {t}.'], prCta: ['Dasturlar roʻyxati', 'App list'],
+  adText: ['Dasturlarning sozlama, kesh va maʼlumotlari. Eng kattalari: {t}. Oʻchirilgan dasturlardan qolgan papkalar ham shu yerda yotadi.', 'Settings, caches and data of your apps. The largest: {t}. Folders left behind by uninstalled apps live here too.'],
+  pMany: ['Koʻp', 'A lot'], mapCta: ['Xaritada koʻrish', 'Open in map'],
+  caText: ['Brauzer, GPU va dasturlar keshi: {t}. Xavfsiz oʻchiriladi — kerak boʻlsa qayta yaratiladi.', 'Browser, GPU and app caches: {t}. Safe to delete — rebuilt when needed.'],
+  pSafe: ['Xavfsiz tozalanadi', 'Safe to clean'],
+  viText: ['Android emulyatorlar, WSL va virtual mashina disklari: {t}.', 'Android emulators, WSL and virtual machine disks: {t}.'],
+  viClaude: [' <b>Claude Desktop ikki marta oʻrnatilgan</b> (oddiy va Store versiyasi) — bittasini oʻchirsangiz {s} boʻshaydi.', ' <b>Claude Desktop is installed twice</b> (regular and Store version) — removing one frees {s}.'],
+  viGeneric: [' Ishlatmayotganingizni oʻchirish — katta yutuq.', ' Removing the ones you don\'t use is a big win.'],
+  pReview: ['Koʻrib chiqing', 'Review'],
+  aiText: ['AI modellar: {t}. Kerak boʻlganda qayta yuklab olinadi.', 'AI models: {t}. Downloaded again when needed.'],
+  dvText: ['Dasturlash vositalari, SDK va paket keshlari: {t}.', 'Developer tools, SDKs and package caches: {t}.'], dvCta: ['Dasturchi qoldiqlari', 'Developer leftovers'],
+  dlText: ['Yuklamalar papkasi{v}.', 'Your Downloads folder{v}.'], dlVid: [', shundan <b>{s} video</b>', ', including <b>{s} of video</b>'],
+  dlExtra: [' {a} ta installyator, {b} ta ochilgan arxiv va {c} ta 6 oydan beri tegilmagan katta fayl ({s}).', ' {a} installers, {b} extracted archives and {c} large files untouched for 6 months ({s}).'],
+  dlMove: [' Kerakli videolarni tashqi diskka oʻtkazing.', ' Move videos you want to keep to an external drive.'], dlCta: ['Yuklamalarni tahlil qilish', 'Analyze downloads'],
+  usText: ['Hujjat, loyiha va media fayllaringiz: {t}{v}.', 'Your documents, projects and media: {t}{v}.'], usVid: ['. Shundan videolar — {s}', '. Videos: {s}'], usCta: ['Katta fayllar', 'Large files'],
+  rcText: ['Oʻchirilgan, lekin hali joy egallab turgan fayllar.', 'Deleted files that still take space.'], pCanEmpty: ['Boʻshatish mumkin', 'Can be emptied'], rcCta: ['Savatni boʻshatish', 'Empty Recycle Bin'],
+  hiText: ['Windows koʻrsatmaydigan joy: tizim tiklash nuqtalari (System Restore), $MFT fayl jadvali{x}.', 'Space Windows doesn\'t show: System Restore points, the $MFT file table{x}.'],
+  hiNoAdmin: [' va oddiy rejimda ochilmaydigan tizim papkalari', ' and system folders normal mode can\'t open'], pCheck: ['Tekshiring', 'Check'],
+  hiCtaAdmin: ['Tiklash nuqtalari', 'Restore points'], hiCtaElevate: ['Admin rejimda aniqlash', 'Detect in admin mode'], pInfo: ['Maʼlumot', 'Info'],
+  // smart cleanup
+  bSafe: ['xavfsiz', 'safe'], bCare: ['ehtiyot', 'careful'], bAdmin: ['admin', 'admin'], bAge: ['{h} soatdan eski', 'older than {h} h'],
+  needAdminTip: ['Admin ruxsati kerak — yuqoridagi “Toʻliq ruxsat” tugmasi', 'Needs admin rights — use “Full access” at the top'],
+  deniedNote: ['Baʼzi joylarga ruxsat yoʻq — hajm toʻliq emas', 'Some places are not accessible — size is partial'],
+  measuring: ['oʻlchanmoqda…', 'measuring…'], allow: ['Ruxsat', 'Allow'], allowFull: ['Ruxsat berish', 'Grant access'],
+  cleanNote: ['{n} ta joy allaqachon toza yoki bu kompyuterda mavjud emas.', '{n} {n:place is|places are} already clean or not on this PC.'],
+  open: ['Ochish', 'Open'], turnOff: ['Oʻchirish', 'Turn off'], alreadyOff: ['Allaqachon oʻchiq', 'Already off'], run: ['Ishga tushirish', 'Run'],
+  sizeUnknown: ['oʻlcham nomaʼlum', 'size unknown'], nPlaces: ['· {n} ta joy', '· {n} {n:place|places}'],
+  reclaimMeasuring: ['Oʻlchanmoqda…', 'Measuring…'], reclaimAdmin: ['+ {n} ta tizim joyi admin ruxsati bilan', '+ {n} system {n:place|places} with admin rights'], reclaimSub: ['Keshlar va vaqtinchalik fayllar', 'Caches and temporary files'],
+  ttlRecycle: ['Savatni boʻshatish', 'Empty Recycle Bin'], ttlHiber: ['Hibernatsiyani oʻchirish', 'Turn off hibernation'], ttlDism: ['WinSxS tozalash', 'WinSxS cleanup'], ttlN: ['{n} ta joyni tozalash', 'Clean {n} {n:place|places}'],
+  cleaning: ['Tozalanmoqda', 'Cleaning'], opening: ['Ochilmoqda', 'Opening'], opened: ['{t} ochildi', '{t} opened'],
+  error: ['Xatolik', 'Error'], close: ['Yopish', 'Close'], great: ['Ajoyib', 'Great'], start: ['Boshlash', 'Start'],
+  lockedFiles: ['{n} ta fayl ochiq dasturlar ishlatayotgani uchun qoldi — dasturni yopib, qayta tozalasangiz ketadi.', '{n} {n:file was|files were} in use by open apps — close them and clean again.'],
+  skippedAdmin: ['{n} ta joy admin ruxsati yoʻqligi uchun oʻtkazib yuborildi.', '{n} {n:place was|places were} skipped for lack of admin rights.'],
+  rescanning: ['Diagnoz yangilanishi uchun disk qayta skanerlanmoqda.', 'Rescanning the disk to refresh the diagnosis.'],
+  freedToast: ['{s} boʻshatildi', '{s} freed'],
+  wRecycle: ['Savatdagi {n} ta element butunlay oʻchadi va qaytarib boʻlmaydi.', 'All {n} {n:item|items} in the Recycle Bin will be deleted for good.'],
+  wHiberOff: ['Hibernate (uyqu) va Fast Startup oʻchadi. Qayta yoqish: <code>powercfg /h on</code>', 'Hibernate and Fast Startup will be turned off. Turn back on: <code>powercfg /h on</code>'],
+  wDism: ['5–20 daqiqa ketishi mumkin. Shu vaqtda kompyuterni oʻchirmang.', 'May take 5–20 minutes. Don\'t turn the PC off meanwhile.'],
+  wCare: ['{t} — qayta yuklab olinadi{n}.', '{t} — will be downloaded again{n}.'],
+  wDefault: ['Faqat kesh va vaqtinchalik fayllar oʻchadi. Ochiq dasturlar ishlatayotgan fayllar avtomatik oʻtkazib yuboriladi.', 'Only caches and temporary files are removed. Files in use by open apps are skipped automatically.'],
+  freedLbl: ['boʻshatildi', 'freed'], approxOf: [' · taxminan {s} dan', ' · of about {s}'], before: ['Oldin', 'Before'], now: ['Hozir', 'Now'],
+  // delete
+  delTitle: ['{n} ta elementni oʻchirish', 'Delete {n} {n:item|items}'], more: ['… yana {n} ta', '… {n} more'],
+  toRecycle: ['Savatga tashlash', 'Move to Recycle Bin'], toRecycleSub: ['Keyin qaytarish mumkin. Joy savat boʻshatilgandagina boʻshaydi.', 'Can be restored later. Space is freed only when the bin is emptied.'],
+  permanent: ['Butunlay oʻchirish', 'Delete permanently'], permanentSub: ['Joy darhol boʻshaydi. Qaytarib boʻlmaydi.', 'Frees space right away. Cannot be undone.'],
+  riskyApp: ['{n} ta element dastur maʼlumotlari papkasida (AppData/ProgramData). Oʻchirilsa tegishli dastur sozlamalari yoʻqolishi mumkin.', '{n} {n:item is|items are} in app data folders (AppData/ProgramData). Deleting may reset those apps\' settings.'],
+  delete: ['Oʻchirish', 'Delete'], movingRecycle: ['Savatga tashlanmoqda', 'Moving to Recycle Bin'], deleting: ['Oʻchirilmoqda', 'Deleting'],
+  skippedN: ['{n} tasi oʻtkazib yuborildi:', '{n} skipped:'], movedTitle: ['Savatga tashlandi', 'Moved to Recycle Bin'], movedN: ['{n} ta element savatga tushdi.', '{n} {n:item|items} moved to the Recycle Bin.'],
+  emptyToFree: ['Joyni haqiqatan boʻshatish uchun savatni boʻshating.', 'Empty the Recycle Bin to actually free the space.'], later: ['Keyinroq', 'Later'], doneN: ['{a} / {b} ta element', '{a} / {b} items'],
+  // games
+  noGames: ['Oʻyin topilmadi', 'No games found'], noGamesSub: ['Steam yoki Epic orqali oʻrnatilgan oʻyinlar shu yerda chiqadi.', 'Games installed via Steam or Epic show up here.'],
+  gTotal: ['Jami', 'Total'], gTotalSub: ['{n} ta oʻyin · diskning {p}%i', '{n} {n:game|games} · {p}% of disk'], gUnplayed: ['2 oydan beri oʻynalmagan', 'Unplayed for 2+ months'],
+  gNone: ['yoʻq — hammasi faol', 'none — all active'], gBiggest: ['Eng kattasi', 'Biggest'],
+  gUpdating: ['yangilanmoqda', 'updating'], gNever: ['oʻynalmagan', 'never played'], g6m: ['6+ oy oʻynalmagan', 'unplayed 6+ months'], g2m: ['2+ oy oʻynalmagan', 'unplayed 2+ months'],
+  gDownloading: ['Yuklanmoqda', 'Downloading'], gSize: ['Hajmi', 'Size'], gPlayed: ['Oʻynalgan', 'Played'], gDisk: ['Diskdan', 'Of disk'],
+  gShader: ['Shader keshi: {s} (oʻyin oʻzi qayta yaratadi)', 'Shader cache: {s} (the game rebuilds it)'], gUninst: ['Steam orqali oʻchirish', 'Uninstall via Steam'], folder: ['Papka', 'Folder'],
+  gUninstTitle: ['{g} — oʻchirish', 'Uninstall {g}'], gUninstBody: ['Steamʼning oʻz oʻchirish oynasi ochiladi — u yerda tasdiqlang. Saqlanishlar (Steam Cloud) yoʻqolmaydi, keyin bir bosishda qayta oʻrnatasiz.', 'Steam\'s own uninstall dialog opens — confirm there. Saves (Steam Cloud) are kept and you can reinstall with one click.'],
+  gLastPlayed: ['Oxirgi marta oʻynalgan: <b style="color:var(--text)">{t}</b>.', 'Last played: <b style="color:var(--text)">{t}</b>.'], gOpenSteam: ['Steamʼda ochish', 'Open in Steam'], gSteamOpened: ['Steam oynasi ochildi — tasdiqlagach joy boʻshaydi', 'Steam opened — space is freed once you confirm'],
+  // map / rows
+  mapFiles: [' · {n} fayl', ' · {n} {n:file|files}'], mapScanning: [' · <span style="color:var(--warn)">skan davom etmoqda — hajmlar oʻsib boradi</span>', ' · <span style="color:var(--warn)">scan in progress — sizes keep growing</span>'],
+  mapNotScanned: [' · <span style="color:var(--warn)">bu papka hali skanerlanmagan — papka hajmlari nomaʼlum</span>', ' · <span style="color:var(--warn)">this folder isn\'t scanned yet — folder sizes unknown</span>'],
+  colName: ['Nomi', 'Name'], colSize: ['Hajmi', 'Size'], colChanged: ['Oʻzgargan', 'Modified'], colFile: ['Fayl', 'File'],
+  emptyFolder: ['Boʻsh papka', 'Empty folder'], moreSmall: ['+ yana {n} ta kichik element ({s})', '+ {n} more small {n:item|items} ({s})'],
+  others: ['boshqalar', 'others'], othersSmall: ['Boshqa kichik elementlar', 'Other small items'], noData: ['Koʻrsatish uchun maʼlumot yoʻq', 'Nothing to show'],
+  tipEnter: ['Bosing — ichiga kirish', 'Click to open'], tipSelect: ['Bosing — tanlash', 'Click to select'], nFiles: ['{n} fayl', '{n} {n:file|files}'],
+  tAppData: ['dastur maʼlumoti', 'app data'], tCloud: ['bulutda', 'cloud'], tNoAccess: ['ruxsat yoʻq', 'no access'], tNoAccessTip: ['Ruxsat yoʻq — ichi oʻlchanmagan', 'No access — contents not measured'],
+  tLink: ['havola', 'link'], select: ['Tanlash', 'Select'], openMap: ['Xaritada ochish', 'Open in map'], showExplorer: ['Explorerʼda koʻrsatish', 'Show in Explorer'],
+  // big files
+  all: ['Hammasi', 'All'], waitScan: ['Skan kutilmoqda', 'Waiting for the scan'], waitScanBig: ['Disk skanerlangach katta fayllar shu yerda chiqadi.', 'Large files appear here once the disk is scanned.'],
+  bigLead: ['Diskdagi eng katta fayllar — tizim fayllari avtomatik himoyalangan.', 'The largest files on the disk — system files are protected automatically.'],
+  bigSum: ['Mos keldi: <b class="mono" style="color:var(--text)">{n}</b> ta fayl, jami <b class="mono" style="color:var(--text)">{s}</b>', 'Matches: <b class="mono" style="color:var(--text)">{n}</b> {n:file|files}, <b class="mono" style="color:var(--text)">{s}</b> total'],
+  scanOngoing: [' · <span style="color:var(--warn)">skan davom etmoqda</span>', ' · <span style="color:var(--warn)">scan in progress</span>'],
+  nothingFound: ['Hech narsa topilmadi', 'Nothing found'], tryFilters: ['Filtrlarni oʻzgartirib koʻring.', 'Try different filters.'], showMore: ['Yana koʻrsatish ({n} ta qoldi)', 'Show more ({n} left)'],
+  // progress
+  kFreed: ['Jami boʻshatildi', 'Freed in total'], kActions: ['{n} ta amal', '{n} {n:action|actions}'], kSession: [' · shu ishga tushirishda {s}', ' · {s} this session'],
+  kFreeNow: ['Hozir boʻsh', 'Free now'], kFromLow: ['eng past nuqtadan +{s}', '+{s} from the lowest point'],
+  kSinceScan: ['Oxirgi skandan beri', 'Since last scan'], kUsedDelta: ['band joy · {a} → {b}', 'used space · {a} → {b}'], kAfter2: ['ikkinchi skandan keyin koʻrinadi', 'shown after the second scan'],
+  kForecast: ['Prognoz', 'Forecast'], kFullIn: ['{d} kun', '{d} {d:day|days}'], kOverYear: ['1 yildan koʻp', 'Over a year'], kFullSub: ['disk shu surʼatda toʻladi · kuniga ~{s}', 'until full at this pace · ~{s}/day'],
+  kStable: ['Barqaror', 'Stable'], kStableSub: ['soʻnggi {h} soatda disk deyarli oʻsmadi', 'the disk barely grew in the last {h} hours'],
+  kCollecting: ['Yigʻilmoqda', 'Collecting'], kCollectingSub: ['{h} soatdan keyin hisoblanadi', 'ready in {h} {h:hour|hours}'],
+  growOne: ['Bitta skan bor', 'Only one scan so far'], growOneSub: ['Keyingi skandan soʻng nima oʻsgani va nima kamaygani shu yerda chiqadi.', 'After the next scan you\'ll see what grew and what shrank.'],
+  growBetween: ['{a} va {b} skanlari oʻrtasida.', 'Between the scans of {a} and {b}.'], growNone: ['Katta oʻzgarish yoʻq', 'No big changes'], growNoneSub: ['200 MB dan katta oʻzgarish boʻlmadi.', 'Nothing changed by more than 200 MB.'],
+  growLead: ['Oxirgi ikki skan oʻrtasidagi farq.', 'Difference between the last two scans.'],
+  evRecycle: [' · savatga', ' · to Recycle Bin'], noActions: ['Hali amal yoʻq', 'No actions yet'], noActionsSub: ['Tozalashlaringiz shu yerda tarix boʻlib qoladi.', 'Your cleanups will be recorded here.'],
+  histCollecting: ['Tarix yigʻilmoqda', 'Collecting history'], histCollectingSub: ['Boʻsh joy har 5 daqiqada yozib boriladi.', 'Free space is recorded every 5 minutes.'],
+  freedTotal: ['jami boʻshatildi', 'freed in total'], freePlus: ['jami boʻshatildi · boʻsh joy +{s}', 'freed in total · free space +{s}'],
+  // types / dups / dev / downloads / apps
+  nFilesExt: ['{n} fayl', '{n} {n:file|files}'], colExt: ['Kengaytma', 'Extension'], colCount: ['Soni', 'Count'],
+  dupsNotRun: ['Hali qidirilmagan', 'Not searched yet'], dupsNotRunSub: ['“Dublikatlarni qidirish”ni bosing — bir necha soniyadan bir necha daqiqagacha davom etadi.', 'Click “Find duplicates” — takes from a few seconds to a few minutes.'],
+  dupsSearching: ['Dublikatlar qidirilmoqda', 'Finding duplicates'], preparing: ['Tayyorlanmoqda…', 'Preparing…'],
+  dupsNone: ['Dublikat topilmadi', 'No duplicates found'], dupsNoneSub: ['Ajoyib — takroriy fayllar yoʻq.', 'Great — no repeated files.'],
+  dupsSum: ['{n} ta guruh · ortiqcha nusxalar <b class="mono" style="color:var(--accent-text)">{s}</b> egallagan', '{n} {n:group|groups} · extra copies take <b class="mono" style="color:var(--accent-text)">{s}</b>'],
+  copies: ['× {n} nusxa', '× {n} copies'], extra: ['ortiqcha', 'extra'], sample: ['namuna', 'sampled'], sampleTip: ['Katta fayl — 25 nuqtadan solishtirildi', 'Large file — compared at 25 points'], oldest: ['eng eski', 'oldest'],
+  dupsPicked: ['Har guruhdan bittadan nusxa qoldirildi (eng eskisi, Yuklamalardan tashqaridagisi afzal)', 'One copy kept per group (the oldest, preferring ones outside Downloads)'],
+  devNone: ['Hech narsa topilmadi', 'Nothing found'], devNoneSub: ['Loyihalarda node_modules yoki venv yoʻq.', 'No node_modules or venv in your projects.'],
+  colProject: ['Papka · loyiha', 'Folder · project'], colLastWork: ['Oxirgi ish', 'Last work'], d90: ['90+ kun', '90+ days'],
+  devPicked: ['{n} ta eski papka tanlandi', '{n} old {n:folder|folders} selected'], devNoOld: ['90 kundan eski papka yoʻq', 'No folders older than 90 days'],
+  dlSum: ['<span class="mono">{p}</span> — {n} fayl, {s}', '<span class="mono">{p}</span> — {n} {n:file|files}, {s}'],
+  dlInst: ['Installyatorlar (.exe / .msi)', 'Installers (.exe / .msi)'], dlInstSub: ['Dastur oʻrnatib boʻlingach installyator odatda kerak emas.', 'Once a program is installed, its installer is rarely needed.'],
+  dlExt: ['Ochib boʻlingan arxivlar', 'Already extracted archives'], dlExtSub: ['Yonida xuddi shu nomli ochilgan papka bor — arxiv nusxasi ortiqcha.', 'A folder with the same name sits next to it — the archive is a spare copy.'],
+  dlVids: ['Katta videolar (200 MB+)', 'Large videos (200 MB+)'], dlVidsSub: ['Koʻrib boʻlingan boʻlsa — oʻchiring yoki tashqi diskka koʻchiring.', 'If you\'ve watched them — delete or move them to an external drive.'],
+  dlOld: ['6 oydan beri tegilmagan katta fayllar', 'Large files untouched for 6 months'], dlOldSub: ['20 MB dan katta, yarim yildan beri oʻzgarmagan.', 'Over 20 MB, unchanged for half a year.'],
+  selectAll: ['Hammasini tanlash', 'Select all'], dlClean: ['Yuklamalar toza', 'Downloads are tidy'], dlCleanSub: ['Keraksiz fayl topilmadi.', 'No unneeded files found.'],
+  appsLoading: ['Yuklanmoqda…', 'Loading…'], appsSum: ['{n} ta dastur · maʼlum hajmi jami {s}', '{n} {n:app|apps} · known size {s} in total'],
+  exact: ['aniq', 'exact'], exactTip: ['Skan boʻyicha haqiqiy hajm', 'Real size from the scan'], openFolder: ['Papkani ochish', 'Open folder'], uninstall: ['Oʻchirish (uninstall)', 'Uninstall'],
+  notFound: ['Topilmadi', 'Not found'], uninstTitle: ['{a} — oʻchirish', 'Uninstall {a}'],
+  uninstBody: ['Dasturning oʻz uninstall oynasi ochiladi. Davom etish uchun oʻsha oynadagi koʻrsatmalarga amal qiling.', 'The app\'s own uninstaller opens. Follow its steps to continue.'],
+  uninstOpen: ['Uninstall oynasini ochish', 'Open uninstaller'], uninstOpened: ['Uninstall oynasi ochildi — tugagach roʻyxat yangilanadi', 'Uninstaller opened — the list refreshes when it\'s done'],
+  // advice
+  aCache: ['{s} kesh va vaqtinchalik fayl', '{s} of caches and temp files'], aCacheSub: ['Xavfsiz tozalanadi — shaxsiy fayllarga tegmaydi.', 'Safe to clean — your own files stay untouched.'],
+  aHiber: ['Hibernatsiya fayli {s}', 'Hibernation file {s}'], aHiberSub: ['Uyqu (Hibernate) rejimidan foydalanmasangiz — oʻchirib, shuncha joy oling.', 'If you don\'t use Hibernate, turn it off and get this space back.'],
+  aAdmin: ['Tizim keshlari yopiq', 'System caches are locked'], aAdminSub: ['Windows Update, Temp va boshqa {n} ta joyni tozalash uchun toʻliq ruxsat bering.', 'Grant full access to clean Windows Update, Temp and {n} more {n:place|places}.'],
+  aRecycle: ['Savatda {s}', '{s} in the Recycle Bin'], aRecycleSub: ['{n} ta oʻchirilgan element hali ham joy egallab turibdi.', '{n} deleted {n:item is|items are} still taking space.'],
+  aGames: ['{n} ta oʻynalmagan oʻyin — {s}', '{n} unplayed {n:game|games} — {s}'], aGamesSub: ['{g} 2 oydan beri ochilmagan.', '{g} not opened in 2 months.'],
+  aDev: ['Eski loyihalarda {s}', '{s} in old projects'], aDevSub: ['{n} ta node_modules/venv 90+ kundan beri tegilmagan.', '{n} node_modules/venv {n:folder|folders} untouched for 90+ days.'],
+  aDl: ['Yuklamalarda {s} ortiqcha', '{s} of leftovers in Downloads'], aDlSub: ['{a} ta installyator va {b} ta ochilgan arxiv.', '{a} installers and {b} extracted archives.'],
+  aVid: ['Yuklamalarda {s} video', '{s} of video in Downloads'], aVidSub: ['{n} ta katta video — koʻrilganlarini oʻchiring yoki koʻchiring.', '{n} large {n:video|videos} — delete or move the ones you\'ve watched.'],
+  aDups: ['{s} dublikat', '{s} of duplicates'], aDupsSub: ['{n} ta fayl bir necha marta saqlangan.', '{n} {n:file is|files are} stored more than once.'],
+  aCheckDups: ['Dublikatlarni tekshiring', 'Check for duplicates'], aCheckDupsSub: ['Bir xil fayllarning ortiqcha nusxalarini toping.', 'Find extra copies of identical files.'],
+  look: ['Koʻrish', 'See'], search: ['Qidirish', 'Search'], grant: ['Ruxsat berish', 'Grant access'],
+  noAdvice: ['Hozircha tavsiya yoʻq', 'No suggestions yet'], noAdviceSub: ['Skan tugagach tavsiyalar shu yerda chiqadi.', 'Suggestions appear here after the scan.'],
+  // elevate
+  elevTitle: ['Toʻliq ruxsat (Administrator)', 'Full access (Administrator)'],
+  elevBody: ['Windows tizim keshlari (Windows Update, Windows Temp, crash dump, hibernatsiya, WinSxS) ni tozalash va yashirin joyni aniqlash uchun dastur administrator sifatida qayta ishga tushadi.<p style="margin:10px 0 0">Windows soʻraganda <b style="color:var(--text)">“Ha”</b> ni bosing. Skan qaytadan boshlanadi.</p>', 'To clean Windows system caches (Windows Update, Windows Temp, crash dumps, hibernation, WinSxS) and measure hidden space, Xotira restarts with administrator rights.<p style="margin:10px 0 0">Click <b style="color:var(--text)">“Yes”</b> when Windows asks. The scan starts again.</p>'],
+  continue: ['Davom etish', 'Continue'], waitingServer: ['Yangi server kutilmoqda…', 'Waiting for the new server…'], elevFail: ['Admin rejimga oʻtib boʻlmadi', 'Could not switch to admin mode'], denied: ['Ruxsat berilmadi', 'Permission denied'],
+  demoAction: ['Demo rejim — haqiqiy fayllarga tegilmaydi', 'Demo mode — no real files are touched'],
+};
+let LANG = (() => {
+  try { const s = localStorage.getItem('xotira-lang'); if (s === 'uz' || s === 'en') return s; } catch (e) { }
+  return (navigator.languages || [navigator.language]).some(l => /^uz/i.test(l || '')) ? 'uz' : 'en';
+})();
+const LI = () => LANG === 'en' ? 1 : 0;
+function t(k, v = {}) {
+  const e = STR[k]; const s = e ? (e[LI()] ?? e[0]) : k;
+  return s.replace(/\{(\w+)(?::([^|}]*)\|([^}]*))?\}/g, (m, name, one, many) => one !== undefined ? (Number(v[name]) === 1 ? one : many) : (v[name] ?? ''));
+}
+const tx = x => x && typeof x === 'object' && !Array.isArray(x) ? (x[LANG] ?? x.uz ?? '') : Array.isArray(x) ? (x[LI()] ?? x[0]) : (x ?? '');
+function applyStatic() {
+  document.documentElement.lang = LANG;
+  document.title = LANG === 'en' ? 'Xotira — disk manager' : 'Xotira — disk boshqaruvi';
+  $$('[data-t]').forEach(el => el.textContent = t(el.dataset.t));
+  $$('[data-th]').forEach(el => el.innerHTML = t(el.dataset.th));
+  $$('[data-tp]').forEach(el => el.placeholder = t(el.dataset.tp));
+  $$('[data-tt]').forEach(el => el.title = t(el.dataset.tt));
+  $$('#langSw button').forEach(b => b.classList.toggle('on', b.dataset.lang === LANG));
+}
+function setLang(l) {
+  LANG = l; try { localStorage.setItem('xotira-lang', l); } catch (e) { }
+  applyStatic(); renderEverything();
+}
+
+/* ================================================================ helpers */
+function $(s, r = document) { return r.querySelector(s); }
+function $$(s, r = document) { return [...r.querySelectorAll(s)]; }
+const sleep = ms => new Promise(r => setTimeout(r, ms));
+const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+const ic = (n, cls = '') => `<svg class="i ${cls}"><use href="#i-${n}"/></svg>`;
+const GB = 1024 ** 3, MB = 1024 ** 2, DAY = 86400;
+const dec = s => LANG === 'en' ? s : s.replace('.', ',');
+function fmt(b) {
+  if (b == null || isNaN(b)) return '—';
+  const neg = b < 0; b = Math.abs(b);
+  if (b < 1024) return (neg ? '−' : '') + Math.round(b) + ' B';
+  const u = ['KB', 'MB', 'GB', 'TB']; let i = -1;
+  do { b /= 1024; i++; } while (b >= 1024 && i < 3);
+  return (neg ? '−' : '') + dec(b >= 100 ? b.toFixed(0) : b >= 10 ? b.toFixed(1) : b.toFixed(2)) + ' ' + u[i];
+}
+const num = n => LANG === 'en' ? (n ?? 0).toLocaleString('en-US') : (n ?? 0).toLocaleString('ru-RU').replace(/,/g, ' ');
+const pct = (a, b) => b ? Math.round(a / b * 100) : 0;
+const nowS = () => Date.now() / 1000;
+const AGO = { today: ['bugun', 'today'], yday: ['kecha', 'yesterday'], d: ['{n} kun oldin', '{n} {n:day|days} ago'], m: ['{n} oy oldin', '{n} {n:month|months} ago'], y: ['{n} yil oldin', '{n} years ago'] };
+function ago(t0) {
+  if (!t0) return '';
+  const d = (nowS() - t0) / DAY, f = (k, n) => t2(AGO[k], { n });
+  if (d < 1) return f('today'); if (d < 2) return f('yday');
+  if (d < 30) return f('d', Math.floor(d));
+  if (d < 365) return f('m', Math.floor(d / 30.4));
+  const y = d / 365; return f('y', y < 10 ? dec(y.toFixed(1)) : Math.floor(y));
+}
+function t2(pair, v = {}) { return pair[LI()].replace(/\{(\w+)(?::([^|}]*)\|([^}]*))?\}/g, (m, name, one, many) => one !== undefined ? (Number(v[name]) === 1 ? one : many) : (v[name] ?? '')); }
+const MON = [['yan', 'fev', 'mar', 'apr', 'may', 'iyun', 'iyul', 'avg', 'sen', 'okt', 'noy', 'dek'], ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']];
+function when(ts) {
+  const d = new Date(ts * 1000), n = new Date();
+  const hm = String(d.getHours()).padStart(2, '0') + ':' + String(d.getMinutes()).padStart(2, '0');
+  if (d.toDateString() === n.toDateString()) return t2(AGO.today) + ' ' + hm;
+  const y = new Date(n); y.setDate(n.getDate() - 1);
+  if (d.toDateString() === y.toDateString()) return t2(AGO.yday) + ' ' + hm;
+  return LANG === 'en' ? `${MON[1][d.getMonth()]} ${d.getDate()} ${hm}` : `${d.getDate()}-${MON[0][d.getMonth()]} ${hm}`;
+}
+const base = p => p.replace(/[\\/]+\*?$/, '').split(/[\\/]/).pop() || p;
+const dirOf = p => { const s = p.replace(/[\\/]+$/, ''); const i = s.lastIndexOf('\\'); return i > 2 ? s.slice(0, i) : s.slice(0, 3); };
+const mapTarget = p => p.endsWith('\\*') ? p.slice(0, -2) : p;
+function countTo(el, v, f = fmt, ms = 700) {
+  if (!el) return;
+  const from = el._v ?? 0; el._v = v;
+  if (matchMedia('(prefers-reduced-motion: reduce)').matches || from === v || v == null) { el.textContent = f(v); return; }
+  const t0 = performance.now();
+  cancelAnimationFrame(el._raf);
+  const step = tt => { const k = Math.min(1, (tt - t0) / ms), e = 1 - Math.pow(1 - k, 3); el.textContent = f(from + (v - from) * e); if (k < 1) el._raf = requestAnimationFrame(step); };
+  el._raf = requestAnimationFrame(step);
+}
+
+/* demo mode: the page runs on sample data (GitHub Pages, screenshots) and never calls a real server */
+const DEMO = new URLSearchParams(location.search).has('demo') || !/^(127\.0\.0\.1|localhost)$/.test(location.hostname);
+const REPO_URL = 'https://github.com/humoyun200108/xotira';
+const api = {
+  async get(u) { if (DEMO) return window.XotiraDemo.get(u); const r = await fetch(u); return r.json(); },
+  async post(u, b = {}) {
+    if (DEMO) return window.XotiraDemo.post(u, b);
+    const r = await fetch(u, { method: 'POST', headers: { 'Content-Type': 'application/json', 'X-Xotira': '1' }, body: JSON.stringify(b) });
+    return r.json();
+  },
+};
+
+const CAT = {
+  video: { l: ['Video', 'Video'], c: '#8b5cf6', i: 'film' }, image: { l: ['Rasmlar', 'Images'], c: '#22c3e6', i: 'image' }, audio: { l: ['Audio', 'Audio'], c: '#fb923c', i: 'music' },
+  archive: { l: ['Arxivlar / ISO', 'Archives / ISO'], c: '#eab308', i: 'archive' }, installer: { l: ['Dastur / installyator', 'Programs / installers'], c: '#f472b6', i: 'package' },
+  project: { l: ['Loyiha / 3D', 'Projects / 3D'], c: '#84cc16', i: 'box' }, model: { l: ['AI modellar', 'AI models'], c: '#14b8a6', i: 'cpu' },
+  document: { l: ['Hujjatlar', 'Documents'], c: '#60a5fa', i: 'doc' }, cache: { l: ['Kesh / log', 'Cache / logs'], c: '#f59e0b', i: 'refresh' },
+  system: { l: ['Tizim / maʼlumot', 'System / data'], c: '#64748b', i: 'win' }, other: { l: ['Boshqa', 'Other'], c: '#94a3b8', i: 'file' },
+};
+const BK = {
+  games: { l: ['Oʻyinlar', 'Games'], c: '#ff5c7a', i: 'game' },
+  windows: { l: ['Windows tizimi', 'Windows'], c: '#8a95a8', i: 'win' },
+  programs: { l: ['Dasturlar', 'Programs'], c: '#a77bff', i: 'package' },
+  appdata: { l: ['Dastur maʼlumotlari', 'App data'], c: '#38bdf8', i: 'folder' },
+  cache: { l: ['Kesh va vaqtinchalik', 'Caches & temp'], c: '#ffb020', i: 'sparkles' },
+  virtual: { l: ['Emulyator va virtual disklar', 'Emulators & virtual disks'], c: '#e879f9', i: 'box' },
+  ai: { l: ['AI modellar', 'AI models'], c: '#3ee0b0', i: 'cpu' },
+  dev: { l: ['Dasturlash', 'Development'], c: '#6c8cff', i: 'code' },
+  downloads: { l: ['Yuklamalar', 'Downloads'], c: '#ff8a4c', i: 'download' },
+  user: { l: ['Hujjat va loyihalaringiz', 'Your documents & projects'], c: '#f5d547', i: 'doc' },
+  recycle: { l: ['Savat', 'Recycle Bin'], c: '#a3a9b3', i: 'trash' },
+  hidden: { l: ['Yashirin tizim joyi', 'Hidden system space'], c: '#55606e', i: 'lock' },
+};
+const bl = id => tx(BK[id]?.l);
+const cl = c => tx((CAT[c] || CAT.other).l);
+const DIRC = ['#2a7f86', '#2f68a8', '#5655b8', '#7a4fae', '#2f8a62', '#927325', '#a34b62', '#3d86a3', '#6b7a2c', '#8a5a3a'];
+const GROUPS = { system: { l: ['Windows', 'Windows'], i: 'win' }, browser: { l: ['Brauzerlar', 'Browsers'], i: 'globe' }, apps: { l: ['Ilovalar', 'Apps'], i: 'chat' }, media: { l: ['Video va dizayn', 'Video & design'], i: 'film' }, dev: { l: ['Dasturchi keshlari', 'Developer caches'], i: 'code' } };
+
+/* ================================================================ state */
+const S = {
+  info: null, status: null, smart: null, smartSel: new Set(), smartTouched: false,
+  sel: new Map(), tab: 'smart', mapPath: null, map: null, types: null, junk: null, dl: null, apps: null, dups: null,
+  bd: null, games: null, prog: null,
+  big: { cat: '', scope: 'user', age: 0, q: '', min: 0, limit: 300 }, lastScanState: null, online: true, jobRunning: null,
+};
+
+/* ================================================================ toast / modal */
+function toast(msg, type = 'ok', ms = 4200) {
+  const el = document.createElement('div');
+  el.className = 'toast ' + type;
+  el.innerHTML = ic(type === 'ok' ? 'check' : 'alert') + `<div>${msg}</div>`;
+  $('#toasts').appendChild(el);
+  setTimeout(() => { el.style.opacity = '0'; el.style.transition = 'opacity .3s'; setTimeout(() => el.remove(), 320); }, ms);
+}
+function openModal(title, body, actions = []) {
+  const m = $('#modal');
+  m.innerHTML = `<h3>${title}</h3><div class="m-body">${body}</div><div class="m-acts"></div>`;
+  setModalActions(actions);
+  $('#scrim').classList.add('on');
+}
+function setModalBody(html) { const b = $('#modal .m-body'); if (b) b.innerHTML = html; }
+function setModalActions(actions) {
+  const box = $('#modal .m-acts'); box.innerHTML = '';
+  for (const a of actions) {
+    const b = document.createElement('button');
+    b.className = 'btn ' + (a.cls || ''); b.innerHTML = a.label;
+    b.onclick = () => a.fn ? a.fn(b) : closeModal();
+    box.appendChild(b);
+  }
+}
+function closeModal() { if ($('#modal').dataset.busy) return; $('#scrim').classList.remove('on'); }
+$('#scrim').addEventListener('mousedown', e => { if (e.target.id === 'scrim') closeModal(); });
+document.addEventListener('keydown', e => {
+  if (e.key === 'Escape' && $('#scrim').classList.contains('on')) closeModal();
+  if (e.key === 'Backspace' && S.tab === 'map' && !/INPUT|SELECT|TEXTAREA/.test(document.activeElement.tagName) && !$('#scrim').classList.contains('on')) { e.preventDefault(); mapUp(); }
+});
+const barHTML = p => `<div class="prog-line ${p == null ? 'ind' : ''}"><i style="width:${Math.round((p || 0) * 100)}%"></i></div>`;
+
+async function runJob(url, body, title, render) {
+  const j = await api.post(url, body);
+  if (!j || j.error) { toast(esc(tx(j?.error) || t('error')), 'bad'); return null; }
+  const m = $('#modal');
+  delete m.dataset.busy;
+  openModal(title, render ? render(j) : barHTML(null), []);
+  m.dataset.busy = '1';
+  S.jobRunning = j; updTopline();
+  let s = j;
+  while (s.state === 'running') {
+    await sleep(400);
+    try { s = await api.get('/api/job?id=' + j.id); } catch (e) { continue; }
+    S.jobRunning = s; updTopline();
+    if (render) liveUpdate(s, render); else setModalBody(barHTML(s.progress) + `<p class="muted" style="margin:10px 0 0;font-size:12.5px">${esc(tx(s.msg))}</p>`);
+  }
+  delete m.dataset.busy;
+  S.jobRunning = null; updTopline();
+  return s;
+}
+function liveUpdate(s, render) {
+  const prev = $('#liveNum');
+  const prevV = prev ? (prev._v ?? +prev.dataset.v) : null;
+  setModalBody(render(s));
+  const n2 = $('#liveNum');
+  if (n2 && prevV != null && !n2.dataset.raw) { n2._v = prevV; countTo(n2, +n2.dataset.v, fmt, 380); }
+}
+const stIcon = st => st === 'run' ? '<span class="st run"></span>' : st === 'done' ? `<span class="st done">${ic('tick')}</span>` : st === 'skip' || st === 'error' ? `<span class="st skip">${ic('x', 'sm')}</span>` : '<span class="st wait"></span>';
+function renderCleanLive(j) {
+  const L = j.live || {}; const items = L.items || [];
+  const exp = items.reduce((a, x) => a + (x.size || 0), 0);
+  const freed = L.freed || 0;
+  return `<div class="live"><div class="live-num" id="liveNum" data-v="${freed}">${fmt(freed)}</div><div class="live-sub">${t('freedLbl')}${exp ? t('approxOf', { s: fmt(exp) }) : ''}</div>
+    ${barHTML(j.progress)}
+    <ul class="live-items">${items.map(x => `<li class="${x.state}">${stIcon(x.state)}<span>${esc(tx(x.title))}</span><span class="mono">${x.state === 'wait' ? fmt(x.size) : fmt(x.freed)}</span></li>`).join('')}</ul>
+    <div class="live-cur">${esc(L.current ? '\u200E' + L.current + '\u200E' : tx(j.msg))}</div></div>`;
+}
+function renderDeleteLive(j) {
+  const L = j.live || {};
+  return `<div class="live"><div class="live-num" id="liveNum" data-v="${L.bytes || 0}">${fmt(L.bytes || 0)}</div><div class="live-sub">${t('doneN', { a: num(L.done || 0), b: num(L.total || 0) })}</div>
+    ${barHTML(j.progress)}<div class="live-cur">${esc(L.current ? '\u200E' + L.current + '\u200E' : '')}</div></div>`;
+}
+function doneHTML(freed, before, after, total, extra = '') {
+  const tt = total || S.info?.drives?.find(d => d.system)?.total || 1;
+  return `<div class="done-box"><div class="ring"></div><div class="live-num">${fmt(freed)}</div><div class="live-sub">${t('freedLbl')}</div></div>
+    ${before != null && after != null ? `<div class="ba">
+      <div><span>${t('before')}</span><span class="bar"><i style="width:${before / tt * 100}%"></i></span><span class="mono">${fmt(before)}</span></div>
+      <div class="now"><span>${t('now')}</span><span class="bar"><i style="width:${before / tt * 100}%" data-w="${after / tt * 100}"></i></span><span class="mono">${fmt(after)}</span></div></div>` : ''}${extra}`;
+}
+function growBars() { requestAnimationFrame(() => setTimeout(() => $$('.ba [data-w]').forEach(i => i.style.width = i.dataset.w + '%'), 60)); }
+
+/* ================================================================ selection + delete */
+function setSel(path, size, on) {
+  if (on) S.sel.set(path, size || 0); else S.sel.delete(path);
+  $$(`[data-selrow="${CSS.escape(path)}"]`).forEach(r => r.classList.toggle('sel', on));
+  $$(`.tm[data-path="${CSS.escape(path)}"]`).forEach(r => r.classList.toggle('sel', on));
+  $$(`.selbox[data-path="${CSS.escape(path)}"]`).forEach(c => c.checked = on);
+  updSelbar();
+}
+function updSelbar() {
+  const n = S.sel.size; let tt = 0; for (const v of S.sel.values()) tt += v;
+  $('#selN').textContent = n; $('#selV').textContent = fmt(tt); $('#selWord').textContent = t('selItems', { n });
+  $('#selbar').classList.toggle('on', n > 0);
+}
+document.addEventListener('change', e => { const c = e.target; if (c.classList.contains('selbox')) setSel(c.dataset.path, +c.dataset.size, c.checked); });
+$('#selClear').onclick = () => { [...S.sel.keys()].forEach(p => setSel(p, 0, false)); };
+$('#selDel').onclick = () => confirmDelete([...S.sel.keys()]);
+
+function confirmDelete(paths) {
+  if (!paths.length) return;
+  let total = 0; paths.forEach(p => total += S.sel.get(p) || 0);
+  const risky = paths.filter(p => /\\AppData\\|\\ProgramData\\/i.test(p));
+  const list = paths.slice(0, 40).map(p => `<li><span title="${esc(p)}">${esc(base(p))}</span><span class="mono">${fmt(S.sel.get(p))}</span></li>`).join('');
+  openModal(t('delTitle', { n: paths.length }),
+    `<div class="big-total">${fmt(total)}</div>
+     <ul class="plain">${list}${paths.length > 40 ? `<li><span>${t('more', { n: paths.length - 40 })}</span><span></span></li>` : ''}</ul>
+     <label class="opt"><input type="radio" name="dm" value="recycle" checked><div><b>${t('toRecycle')}</b><span>${t('toRecycleSub')}</span></div></label>
+     <label class="opt"><input type="radio" name="dm" value="permanent"><div><b>${t('permanent')}</b><span>${t('permanentSub')}</span></div></label>
+     ${risky.length ? `<div class="warnbox">${ic('alert', 'sm')} ${t('riskyApp', { n: risky.length })}</div>` : ''}`,
+    [{ label: t('cancel'), cls: 'ghost' }, {
+      label: ic('trash', 'sm') + t('delete'), cls: 'danger', fn: async () => {
+        const mode = $('input[name=dm]:checked').value;
+        const s = await runJob('/api/delete', { paths, mode }, mode === 'recycle' ? t('movingRecycle') : t('deleting'), renderDeleteLive);
+        if (!s) return closeModal();
+        const r = s.result || { ok: [], fail: [] };
+        r.ok.forEach(o => setSel(o.path, 0, false));
+        const failHTML = r.fail.length ? `<p style="margin:14px 0 0">${t('skippedN', { n: r.fail.length })}</p><ul class="plain">${r.fail.slice(0, 30).map(f => `<li><span title="${esc(f.path)}">${esc(base(f.path))}</span><span style="color:var(--warn)">${esc(tx(f.error))}</span></li>`).join('')}</ul>` : '';
+        if (s.state !== 'done') { openModal(t('error'), `<p>${esc(tx(s.msg))}</p>`, [{ label: t('close'), cls: 'primary' }]); return; }
+        if (mode === 'recycle') {
+          openModal(t('movedTitle'), `<div class="big-total">${fmt(r.bytes)}</div>${t('movedN', { n: r.ok.length })}${failHTML}
+            ${r.bytes > 0 ? `<div class="infobox">${t('emptyToFree')}</div>` : ''}`,
+            r.bytes > 0 ? [{ label: t('later'), cls: 'ghost' }, { label: t('ttlRecycle'), cls: 'primary', fn: () => cleanTargets(['recycle']) }] : [{ label: t('close'), cls: 'primary' }]);
+        } else {
+          openModal(t('ready'), doneHTML(r.bytes, r.free_before, r.free_after) + failHTML, [{ label: t('great'), cls: 'primary' }]);
+          growBars();
+        }
+        afterChange();
+      }
+    }]);
+}
+async function afterChange() { loadInfo(); refreshTab(true); loadSmart(); loadProgress(); }
+
+/* ================================================================ hero */
+async function loadInfo() {
+  try { S.info = await api.get('/api/info'); setOnline(true); } catch (e) { setOnline(false); return; }
+  renderHero();
+}
+function setOnline(on) {
+  if (on && S.online === false) { location.reload(); return; }
+  S.online = on;
+  $('#connPill').style.display = on ? 'none' : '';
+}
+function sysDrive() { const d = S.info?.drives || []; return d.find(x => x.system) || d[0]; }
+function renderHero() {
+  const I = S.info; if (!I) return;
+  const d = sysDrive(); if (!d) return;
+  const freeP = d.free / d.total;
+  $('#footVer').textContent = 'v' + (I.version || '1.0.0');
+  $('#driveEyebrow').innerHTML = `${ic('hdd', 'sm')} ${esc(d.letter)}: ${t('disk')}${d.label ? ' · ' + esc(d.label) : ''} · ${esc(d.fs)}${d.system ? ' · ' + t('sysDisk') : ''}` +
+    (I.drives.length > 1 ? `<span class="drive-chips">${I.drives.filter(x => !x.system).map(x => `<button class="chip" data-scan="${esc(x.root)}">${esc(x.letter)}: ${fmt(x.free)} ${t('free')}</button>`).join('')}</span>` : '');
+  const h1 = $('#driveFree');
+  if (!h1.querySelector('.v')) h1.innerHTML = `<span class="v"></span><small></small>`;
+  h1.querySelector('small').textContent = t('free');
+  countTo(h1.querySelector('.v'), d.free);
+  $('#driveSub').textContent = t('ofUsed', { t: fmt(d.total), u: fmt(d.used), p: pct(d.used, d.total) });
+  const h = $('#driveHealth'); h.style.display = '';
+  const fp = dec((freeP * 100).toFixed(1));
+  if (freeP < 0.1) { h.className = 'health bad'; h.innerHTML = ic('alert', 'sm') + `<span>${t('hBad', { p: fp })}</span>`; }
+  else if (freeP < 0.2) { h.className = 'health warn'; h.innerHTML = ic('alert', 'sm') + `<span>${t('hWarn', { p: fp, x: fmt(d.total * 0.15) })}</span>`; }
+  else { h.className = 'health ok'; h.innerHTML = ic('check', 'sm') + `<span>${t('hOk', { p: Math.round(freeP * 100) })}</span>`; }
+  const rb = I.recycle || {};
+  $('#recV').textContent = fmt(rb.size);
+  $('#recS').textContent = rb.count ? t('recItems', { n: num(rb.count) }) : t('recEmpty');
+  $('#recBtn').disabled = !rb.size;
+  countTo($('#freedV'), I.stats?.freed_total || 0);
+  $('#adminPill').className = 'pill ' + (I.admin ? 'ok' : '');
+  $('#adminPill').innerHTML = I.admin ? ic('shield', 'sm') + t('adminMode') : t('normalMode');
+  $('#elevateBtn').style.display = I.admin ? 'none' : '';
+  if (I.scan) renderScan(S.status?.scan || I.scan);
+  renderDonut();
+}
+function renderDonut() {
+  const d = sysDrive(); if (!d) return;
+  const svg = $('#donut'), R = 80, C = 2 * Math.PI * R, gap = 1.6;
+  let segs;
+  if (S.bd?.buckets?.length) segs = S.bd.buckets.filter(b => b.size > d.total * 0.002).map(b => ({ id: b.id, size: b.size, c: BK[b.id]?.c || '#888', l: bl(b.id) }));
+  else segs = [{ id: 'used', size: d.used, c: d.free / d.total < 0.1 ? 'var(--bad)' : d.free / d.total < 0.2 ? 'var(--warn)' : 'var(--accent)', l: t('usedLbl') }];
+  const old = $$('.seg', svg);
+  if (old.length !== segs.length || old.some((o, k) => o.dataset.b !== segs[k].id)) {
+    old.forEach(o => o.remove());
+    segs.forEach(s => {
+      const c = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+      c.setAttribute('cx', 100); c.setAttribute('cy', 100); c.setAttribute('r', R); c.setAttribute('class', 'seg');
+      c.dataset.b = s.id; c.setAttribute('stroke-dasharray', `0 ${C}`);
+      svg.appendChild(c);
+    });
+  }
+  let off = 0;
+  const els = $$('.seg', svg);
+  requestAnimationFrame(() => segs.forEach((s, k) => {
+    const len = Math.max(0, s.size / d.total * C - gap);
+    els[k].style.stroke = s.c;
+    els[k].setAttribute('stroke-dasharray', `${len} ${C - len}`);
+    els[k].setAttribute('stroke-dashoffset', -off);
+    off += s.size / d.total * C;
+  }));
+  svg._segs = segs;
+  donutCenter();
+  const L = $('#driveLegend');
+  if (S.bd?.buckets?.length) L.innerHTML = segs.slice(0, 7).map(s => `<span data-b="${s.id}" style="--c:${s.c}"><i></i>${esc(s.l)} <b>${fmt(s.size)}</b></span>`).join('');
+  else L.innerHTML = `<span style="--c:var(--dim)"><i></i>${t('legendWait')}</span>`;
+}
+function donutCenter(hl) {
+  const d = sysDrive(); if (!d) return;
+  const box = $('#dCenter');
+  if (hl) { box.innerHTML = `<b>${fmt(hl.size)}</b><span>${t('diskPct', { p: pct(hl.size, d.total) })}</span><em>${esc(hl.l)}</em>`; return; }
+  box.innerHTML = `<b>${Math.round(d.free / d.total * 100)}%</b><span>${t('free')}</span><em>${fmt(d.free)}</em>`;
+}
+function hlBucket(id, on) {
+  $('#donut').classList.toggle('hov', !!on);
+  $$('#donut .seg').forEach(s => s.classList.toggle('hl', on && s.dataset.b === id));
+  $$('#driveLegend [data-b]').forEach(s => s.classList.toggle('hl', on && s.dataset.b === id));
+  donutCenter(on ? ($('#donut')._segs || []).find(s => s.id === id) : null);
+}
+$('#donut').addEventListener('mouseover', e => { const s = e.target.closest('.seg'); if (s) hlBucket(s.dataset.b, true); });
+$('#donut').addEventListener('mouseout', e => { if (e.target.closest('.seg')) hlBucket(null, false); });
+$('#donut').addEventListener('click', e => { const s = e.target.closest('.seg'); if (s && BK[s.dataset.b]) scrollToBucket(s.dataset.b); });
+$('#driveLegend').addEventListener('mouseover', e => { const s = e.target.closest('[data-b]'); if (s) hlBucket(s.dataset.b, true); });
+$('#driveLegend').addEventListener('mouseout', () => hlBucket(null, false));
+$('#driveLegend').addEventListener('click', e => { const s = e.target.closest('[data-b]'); if (s) scrollToBucket(s.dataset.b); });
+$('#driveCard').addEventListener('click', e => { const b = e.target.closest('[data-scan]'); if (b) startScan(b.dataset.scan); });
+function scrollToBucket(id) {
+  const c = $(`.bcard[data-b="${id}"]`); if (!c) return;
+  c.scrollIntoView({ behavior: 'smooth', block: 'center' });
+  c.animate([{ boxShadow: '0 0 0 0 transparent' }, { boxShadow: `0 0 0 3px ${BK[id].c}` }, { boxShadow: '0 0 0 0 transparent' }], { duration: 1400 });
+}
+function scanPct(sc) {
+  const d = sysDrive();
+  if (!sc || !d || !/^[A-Z]:\\?$/i.test(sc.root) || sc.root[0].toUpperCase() !== d.letter) return null;
+  return Math.min(0.99, sc.bytes / Math.max(1, d.used));
+}
+function renderScan(sc) {
+  const acts = $('#scanActs'), ring = $('#scanRing');
+  if (!sc) { $('#scanV').textContent = t('notScanned'); acts.innerHTML = `<button class="btn sm primary" data-scanbtn>${t('scanBtn')}</button>`; ring.style.display = 'none'; return; }
+  if (sc.state === 'running') {
+    const p = scanPct(sc), d = sysDrive();
+    const rate = sc.elapsed > 1 ? sc.bytes / sc.elapsed : 0;
+    const eta = p != null && rate > 0 ? Math.max(1, Math.round((d.used - sc.bytes) / rate)) : null;
+    ring.style.display = '';
+    ring.querySelector('.fg').setAttribute('stroke-dasharray', `${(p ?? 0.15) * 119.4} 120`);
+    $('#scanV').textContent = p != null ? Math.round(p * 100) + '%' : fmt(sc.bytes);
+    $('#scanS').textContent = t('scanRun', { f: num(sc.files), r: num(sc.rate), eta: eta ? t('etaLeft', { s: eta }) : '' });
+    $('#scanCur').textContent = sc.current || '';
+    acts.innerHTML = `<button class="btn sm" data-scancancel>${ic('stop', 'sm')}${t('stop')}</button>`;
+  } else {
+    ring.style.display = 'none';
+    $('#scanV').textContent = sc.state === 'done' ? t('ready') : t('stopped');
+    $('#scanS').textContent = t('scanDone', { f: num(sc.files), b: fmt(sc.bytes), s: Math.round(sc.elapsed), e: sc.errors ? t('noAccess', { n: num(sc.errors) }) : '' });
+    $('#scanCur').textContent = '';
+    acts.innerHTML = `<button class="btn sm" data-scanbtn="${esc(sc.root)}">${ic('refresh', 'sm')}${t('rescan')}</button>`;
+  }
+  updTopline();
+}
+$('#scanActs').addEventListener('click', e => {
+  if (e.target.closest('[data-scancancel]')) return api.post('/api/scan/cancel');
+  const b = e.target.closest('[data-scanbtn]'); if (b) startScan(b.dataset.scanbtn || undefined);
+});
+function updTopline() {
+  const line = $('#topline'), pill = $('#livePill');
+  const sc = S.status?.scan || S.info?.scan;
+  const j = S.jobRunning;
+  if (j) {
+    line.classList.add('on'); line.classList.toggle('ind', j.progress == null);
+    line.firstElementChild.style.width = Math.round((j.progress || 0) * 100) + '%';
+    pill.style.display = ''; pill.textContent = j.kind === 'dups' ? t('pillDups') : t('pillClean');
+  } else if (sc?.state === 'running') {
+    const p = scanPct(sc);
+    line.classList.add('on'); line.classList.toggle('ind', p == null);
+    line.firstElementChild.style.width = Math.round((p || 0) * 100) + '%';
+    pill.style.display = ''; pill.textContent = t('pillScan', { p: p != null ? Math.round(p * 100) + '%' : '…' });
+  } else { line.classList.remove('on'); pill.style.display = 'none'; }
+}
+$('#livePill').onclick = () => $('#tileScan').scrollIntoView({ behavior: 'smooth', block: 'center' });
+async function startScan(path) {
+  const r = await api.post('/api/scan', { path: path || S.info?.sysdrive || 'C:\\' });
+  if (r.error) return toast(esc(tx(r.error)), 'bad');
+  S.mapPath = r.root; S.lastScanState = 'running';
+  S.status = { ...(S.status || {}), scan: r };
+  renderScan(r); toast(t('scanStarted', { p: esc(r.root) }));
+  if (S.tab === 'map') loadMap(S.mapPath);
+}
+
+/* ================================================================ poll */
+let pollN = 0;
+async function poll() {
+  let st;
+  try { st = await api.get('/api/status'); setOnline(true); } catch (e) { setOnline(false); setTimeout(poll, 3000); return; }
+  S.status = st; pollN++;
+  const sc = st.scan;
+  if (sc) renderScan(sc);
+  const running = sc && sc.state === 'running';
+  if (sc && S.lastScanState === 'running' && sc.state === 'done') {
+    toast(t('scanFinished', { f: num(sc.files), b: fmt(sc.bytes), s: Math.round(sc.elapsed) }));
+    onScanDone();
+  } else if (running && pollN % 6 === 0) refreshTab(false);
+  if (sc) S.lastScanState = sc.state;
+  if (pollN % 12 === 0) loadInfo();
+  if (pollN % 30 === 0) loadProgress();
+  setTimeout(poll, running || st.jobs?.length ? 1000 : 3000);
+}
+async function onScanDone() {
+  await Promise.all([loadTypes(), loadOverview(), loadGames()]);
+  S.junk = null; S.dl = null;
+  refreshTab(true);
+  loadJunk().then(renderAll); loadDl().then(renderAll); loadInfo();
+  setTimeout(loadProgress, 1500);
+}
+function renderAll() { renderDiag(); renderAdvice(); }
+function renderEverything() {
+  renderHero(); renderSmart(); renderGames(); renderAll(); updSelbar(); updTopline(); renderSpark();
+  if (S.dups) renderDups(); else $('#dupBody').innerHTML = `<div class="card empty"><b>${t('dupsNotRun')}</b>${t('dupsNotRunSub')}</div>`;
+  refreshTab(true);
+}
+
+/* ================================================================ tabs */
+function switchTab(tb) {
+  S.tab = tb;
+  $$('.tab').forEach(b => b.classList.toggle('on', b.dataset.tab === tb));
+  $$('.panel').forEach(p => p.classList.toggle('on', p.dataset.panel === tb));
+  const top = $('.panel.on').getBoundingClientRect().top + scrollY - 130;
+  if (scrollY > top) scrollTo({ top });
+  refreshTab(true);
+}
+$('#tabs').addEventListener('click', e => { const b = e.target.closest('.tab'); if (b) switchTab(b.dataset.tab); });
+function goTab(tb) { switchTab(tb); $('#tabs').scrollIntoView({ behavior: 'smooth', block: 'start' }); }
+document.addEventListener('click', e => { const g = e.target.closest('[data-go]'); if (g) goTab(g.dataset.go); });
+function refreshTab(force) {
+  const tb = S.tab;
+  if (tb === 'map') loadMap(S.mapPath);
+  else if (tb === 'big') loadBig();
+  else if (tb === 'types') loadTypes().then(renderTypes);
+  else if (tb === 'dev') loadJunk().then(renderDev);
+  else if (tb === 'downloads') (force || !S.dl ? loadDl() : Promise.resolve()).then(renderDl);
+  else if (tb === 'apps') (force || !S.apps ? loadApps() : Promise.resolve()).then(renderApps);
+  else if (tb === 'games') loadGames();
+  else if (tb === 'progress') loadProgress();
+  else if (tb === 'smart' && force) renderSmart();
+}
+
+/* ================================================================ diagnosis */
+async function loadOverview() {
+  try { const r = await api.get('/api/overview'); S.bd = r.breakdown; } catch (e) { return; }
+  renderDonut(); renderDiag(); renderAdvice();
+}
+function bucketStory(b) {
+  const I = S.info || {};
+  const top = (n = 3) => b.items.slice(0, n).map(i => `<b>${esc(tx(i.name))}</b> (${fmt(i.size)})`).join(', ');
+  const compOf = c => (b.comp.find(x => x[0] === c) || [0, 0])[1];
+  const s = { tone: 'info', pill: t('pInfo'), text: '', cta: null, items: b.items };
+  switch (b.id) {
+    case 'games': {
+      const G = (S.games || []).filter(g => g.size > 0);
+      const unused = G.filter(g => !g.last_played || nowS() - g.last_played > 60 * DAY);
+      const us = unused.reduce((a, g) => a + g.size, 0);
+      const upd = G.find(g => g.updating);
+      if (G.length) {
+        s.items = G.slice(0, 4).map(g => ({ name: g.name, size: g.size, go: 'games' }));
+        s.text = t('gText', { n: G.length, g: esc(G[0].name), s: fmt(G[0].size) }) + (unused.length ? t('gUnused', { n: unused.length, s: fmt(us) }) : t('gAllRecent')) + (upd ? t('gUpd', { g: esc(upd.name) }) : '');
+      } else s.text = t('gFiles', { t: top() });
+      if (us > 5 * GB) { s.tone = 'act'; s.pill = t('gPillFree', { s: fmt(us) }); } else { s.tone = 'info'; s.pill = t('gPillActive'); }
+      s.cta = { l: t('gCta'), go: 'games' }; break;
+    }
+    case 'windows': {
+      const pf = b.items.find(i => /pagefile\.sys$/i.test(i.path)), hb = b.items.find(i => /hiberfil\.sys$/i.test(i.path)), sx = b.items.find(i => /\\WinSxS$/i.test(i.path));
+      const parts = [sx && `WinSxS ${fmt(sx.size)}`, pf && `pagefile ${fmt(pf.size)}`, hb && `hiberfil ${fmt(hb.size)}`].filter(Boolean).join(', ');
+      s.text = t('wText', { p: parts ? t('wYours', { x: parts }) : '' }) + (hb ? t('wHiber', { s: fmt(hb.size) }) : '');
+      if (b.size > 60 * GB) { s.tone = 'warn'; s.pill = t('pBig'); } else { s.tone = 'ok'; s.pill = t('pNormal'); }
+      s.cta = { l: t('wCta'), fn: () => { goTab('smart'); setTimeout(() => $('#toolsTitle').scrollIntoView({ behavior: 'smooth', block: 'start' }), 300); } }; break;
+    }
+    case 'programs': s.text = t('prText', { t: top() }); s.cta = { l: t('prCta'), go: 'apps' }; break;
+    case 'appdata':
+      s.text = t('adText', { t: top() });
+      if (b.size > 40 * GB) { s.tone = 'warn'; s.pill = t('pMany'); }
+      s.cta = { l: t('mapCta'), map: (I.home || '') + '\\AppData' }; break;
+    case 'cache':
+      s.text = t('caText', { t: top() }); s.items = b.items.map(i => ({ ...i, go: 'smart' }));
+      if (b.size > GB) { s.tone = 'act'; s.pill = t('pSafe'); }
+      s.cta = { l: t('clean'), go: 'smart' }; break;
+    case 'virtual': {
+      const vm = b.items.filter(i => /vm_bundles/i.test(i.path));
+      s.text = t('viText', { t: top() }) + (vm.length > 1 ? t('viClaude', { s: fmt(Math.min(...vm.map(v => v.size))) }) : t('viGeneric'));
+      if (b.size > 5 * GB) { s.tone = 'act'; s.pill = t('pReview'); }
+      s.cta = { l: t('prCta'), go: 'apps' }; break;
+    }
+    case 'ai': s.text = t('aiText', { t: top() }); s.cta = { l: t('mapCta'), map: b.items[0] && dirOf(mapTarget(b.items[0].path)) }; break;
+    case 'dev': s.text = t('dvText', { t: top() }); s.cta = { l: t('dvCta'), go: 'dev' }; break;
+    case 'downloads': {
+      const v = compOf('video'), g = S.dl?.groups;
+      const extra = g ? g.installers.size + g.extracted.size + g.old.size : 0;
+      s.text = t('dlText', { v: v > GB ? t('dlVid', { s: fmt(v) }) : '' }) + (g ? t('dlExtra', { a: g.installers.count, b: g.extracted.count, c: g.old.count, s: fmt(extra) }) : '') + t('dlMove');
+      if (b.size > 15 * GB) { s.tone = 'act'; s.pill = t('pReview'); }
+      s.cta = { l: t('dlCta'), go: 'downloads' }; break;
+    }
+    case 'user': { const v = compOf('video'); s.text = t('usText', { t: top(), v: v > GB ? t('usVid', { s: fmt(v) }) : '' }); s.cta = { l: t('usCta'), go: 'big' }; break; }
+    case 'recycle':
+      s.text = t('rcText'); if (b.size > 100 * MB) { s.tone = 'act'; s.pill = t('pCanEmpty'); }
+      s.cta = { l: t('rcCta'), fn: () => cleanTargets(['recycle']) }; s.items = []; break;
+    case 'hidden':
+      s.text = t('hiText', { x: I.admin ? '' : t('hiNoAdmin') });
+      if (b.size > 15 * GB) { s.tone = 'warn'; s.pill = t('pCheck'); }
+      s.cta = I.admin ? { l: t('hiCtaAdmin'), fn: () => cleanTargets(['restore']) } : { l: t('hiCtaElevate'), fn: elevate };
+      s.items = []; break;
+  }
+  return s;
+}
+function quickWins() {
+  const W = [], sm = S.smart, I = S.info;
+  const safe = smartSafeTotal(); if (safe > 200 * MB) W.push({ l: t('winCache'), s: safe, c: BK.cache.c, go: 'smart' });
+  const G = S.games || []; const unused = G.filter(g => g.size > 0 && (!g.last_played || nowS() - g.last_played > 60 * DAY));
+  const us = unused.reduce((a, g) => a + g.size, 0); if (us > 2 * GB) W.push({ l: t('winGames', { n: unused.length }), s: us, c: BK.games.c, go: 'games' });
+  const g = S.dl?.groups; if (g) { const x = g.installers.size + g.extracted.size; if (x > 300 * MB) W.push({ l: t('winDl'), s: x, c: BK.downloads.c, go: 'downloads' }); }
+  if (I?.recycle?.size > 100 * MB) W.push({ l: t('winRecycle'), s: I.recycle.size, c: BK.recycle.c, fn: () => cleanTargets(['recycle']) });
+  const hib = sm?.items.find(x => x.id === 'hiber'); if (hib?.size > 2 * GB) W.push({ l: t('winHiber'), s: hib.size, c: BK.windows.c, go: 'smart' });
+  const vm = S.bd?.buckets.find(b => b.id === 'virtual')?.items.filter(i => /vm_bundles/i.test(i.path)) || [];
+  if (vm.length > 1) W.push({ l: t('winClaude'), s: Math.min(...vm.map(v => v.size)), c: BK.virtual.c, go: 'apps' });
+  return W.sort((a, b) => b.s - a.s);
+}
+function renderDiag() {
+  const bd = S.bd, d = sysDrive();
+  if (!bd || !d) {
+    const sc = S.status?.scan || S.info?.scan;
+    $('#diagSub').textContent = sc?.state === 'running' ? t('diagScanning', { p: Math.round((scanPct(sc) || 0) * 100) }) : t('diagNeedScan');
+    if (!$('#diagGrid').children.length) $('#diagGrid').innerHTML = Array.from({ length: 6 }, () => `<div class="card bcard" style="--c:var(--line-2);min-height:220px"><div class="skel" style="height:38px;width:60%"></div><div class="skel" style="height:6px"></div><div class="skel" style="height:60px"></div></div>`).join('');
+    return;
+  }
+  const used = bd.used || d.used, bs = bd.buckets.filter(b => b.size > used * 0.004);
+  const [a, b2] = bs;
+  const share = x => pct(x.size, used);
+  $('#diagTitle').innerHTML = a ? (b2 ? t('diagTitle2', { p1: share(a), b1: esc(bl(a.id).toLowerCase()), p2: share(b2), b2: esc(bl(b2.id).toLowerCase()) }) : t('diagTitle1', { p1: share(a), b1: esc(bl(a.id).toLowerCase()) })) : '';
+  const W = quickWins(), wsum = W.reduce((x, w) => x + w.s, 0);
+  $('#diagSub').innerHTML = t('diagSub', { u: fmt(used), n: bs.length }) + (wsum > GB ? t('diagWin', { x: fmt(wsum) }) : t('diagClean'));
+  $('#diagWins').innerHTML = W.length ? `<div class="w-h">${t('quickWins')} <b>${fmt(wsum)}</b></div>` + W.slice(0, 5).map((w, k) => `<div class="win" data-win="${k}" style="--c:${w.c}"><i></i><span>${esc(w.l)}</span><b>${fmt(w.s)}</b>${ic('right', 'sm')}</div>`).join('') : '';
+  window._wins = W;
+  $('#diagStrip').innerHTML = bs.map(x => `<div style="flex:${x.size} 1 0;--c:${BK[x.id].c}" class="${x.id === 'hidden' ? 'hid' : ''}" data-b="${x.id}" title="${esc(bl(x.id))} — ${fmt(x.size)}"><span>${x.size / d.total > 0.07 ? esc(bl(x.id)) : ''}</span></div>`).join('') +
+    `<div class="free" style="flex:${d.free} 1 0" title="${t('free')} — ${fmt(d.free)}"><span>${d.free / d.total > 0.07 ? t('free') + ' ' + fmt(d.free) : ''}</span></div>`;
+  const stories = {};
+  $('#diagGrid').innerHTML = bs.map(x => {
+    const m = BK[x.id], st = stories[x.id] = bucketStory(x);
+    const items = (st.items || []).slice(0, 4).map(i => `<li ${i.go ? `data-go="${i.go}"` : `data-map="${esc(mapTarget(i.path))}"`} title="${esc(i.path || '')}"><span>${esc(tx(i.name))}</span><b>${fmt(i.size)}</b></li>`).join('');
+    return `<article class="card bcard" data-b="${x.id}" style="--c:${m.c}">
+      <div class="bc-h"><span class="bc-ic">${ic(m.i)}</span><div><b>${esc(bl(x.id))}</b><small>${t('shareLine', { a: share(x), b: pct(x.size, d.total) })}</small></div><span class="bc-z">${fmt(x.size)}</span></div>
+      <div class="bc-bar"><i style="width:${Math.max(1, x.size / (bs[0].size || 1) * 100)}%"></i></div>
+      <span class="tone ${st.tone}">${esc(st.pill)}</span>
+      <p class="bc-t">${st.text}</p>
+      ${items ? `<ul class="bc-items">${items}</ul>` : ''}
+      ${st.cta ? `<button class="bc-cta" data-cta="${x.id}">${esc(st.cta.l)} ${ic('right', 'sm')}</button>` : ''}
+    </article>`;
+  }).join('');
+  window._stories = stories;
+}
+$('#diag').addEventListener('click', e => {
+  const w = e.target.closest('[data-win]'); if (w) { const x = window._wins[+w.dataset.win]; return x.fn ? x.fn() : goTab(x.go); }
+  const m = e.target.closest('[data-map]'); if (m) { goTab('map'); return loadMap(m.dataset.map); }
+  const c = e.target.closest('[data-cta]');
+  if (c) { const st = window._stories[c.dataset.cta]?.cta; if (!st) return; if (st.fn) st.fn(); else if (st.map) { goTab('map'); loadMap(st.map); } else goTab(st.go); return; }
+  const s = e.target.closest('#diagStrip [data-b]'); if (s) scrollToBucket(s.dataset.b);
+});
+
+/* ================================================================ smart */
+async function loadSmart() {
+  try { S.smart = await api.get('/api/smart'); } catch (e) { return; }
+  const items = S.smart.items;
+  if (!S.smartTouched) S.smartSel = new Set(items.filter(it => it.kind === 'clean' && it.risk === 'safe' && it.state === 'done' && it.size > 0 && (!it.admin || S.smart.admin)).map(it => it.id));
+  renderSmart(); renderAll();
+  if (items.some(it => it.state === 'measuring')) setTimeout(loadSmart, 1500);
+}
+function smartSafeTotal() {
+  if (!S.smart) return 0;
+  return S.smart.items.filter(it => it.kind === 'clean' && it.risk === 'safe' && (!it.admin || S.smart.admin)).reduce((a, it) => a + (it.size || 0), 0);
+}
+function renderSmart() {
+  const sm = S.smart; if (!sm) return;
+  const admin = sm.admin;
+  const byG = {}; let hiddenN = 0;
+  for (const it of sm.items) {
+    if (it.kind !== 'clean') continue;
+    if (it.state === 'done' && (!it.exists || (!it.size && !it.denied))) { hiddenN++; continue; }
+    (byG[it.group] ||= []).push(it);
+  }
+  let html = '';
+  for (const g of Object.keys(GROUPS)) {
+    const arr = byG[g]; if (!arr?.length) continue;
+    arr.sort((a, b) => (b.size || 0) - (a.size || 0));
+    const tot = arr.reduce((a, it) => a + (it.size || 0), 0);
+    html += `<div class="card sgroup"><div class="sg-h">${ic(GROUPS[g].i)}${tx(GROUPS[g].l)}<span class="sg-t">${fmt(tot)}</span></div>` + arr.map(it => {
+      const locked = it.admin && !admin, meas = it.state === 'measuring';
+      const badges = [it.risk === 'safe' ? `<span class="badge safe">${t('bSafe')}</span>` : `<span class="badge care">${t('bCare')}</span>`, it.admin ? `<span class="badge admin">${t('bAdmin')}</span>` : '', it.age ? `<span class="badge gray">${t('bAge', { h: it.age })}</span>` : ''].join('');
+      return `<label class="srow ${locked ? 'off' : ''}" ${locked ? `title="${esc(t('needAdminTip'))}"` : ''}>
+        <input type="checkbox" class="scheck" data-id="${it.id}" ${S.smartSel.has(it.id) ? 'checked' : ''} ${locked || meas || !it.size ? 'disabled' : ''}>
+        <div><div class="s-t">${esc(tx(it.title))} ${badges}</div><div class="s-d">${esc(tx(it.desc))}</div>${it.note ? `<div class="s-n">${esc(tx(it.note))}</div>` : ''}${it.denied ? `<div class="s-n" style="color:var(--violet)">${t('deniedNote')}</div>` : ''}</div>
+        <div class="s-z">${meas ? `<span class="dim">${t('measuring')}</span>` : (it.denied && !admin ? '≥ ' : '') + fmt(it.size)}</div>
+        <div class="s-btn">${locked ? `<button class="btn sm violet" data-elevate>${t('allow')}</button>` : `<button class="btn sm" data-clean1="${it.id}" ${!it.size ? 'disabled' : ''}>${t('clean')}</button>`}</div>
+      </label>`;
+    }).join('') + '</div>';
+  }
+  $('#sgroups').innerHTML = html || `<div class="card empty"><b>${t('measuring')}</b></div>`;
+  $('#cleanNote').textContent = hiddenN ? t('cleanNote', { n: hiddenN }) : '';
+  updSmartBar();
+  const tools = sm.items.filter(it => it.group === 'tools');
+  $('#tools').innerHTML = tools.filter(tl => tl.id !== 'winold' || tl.exists).map(tl => {
+    const locked = tl.admin && !admin;
+    const icon = { recycle: 'trash', hiber: 'moon2', dism: 'win', winold: 'archive', cleanmgr: 'sparkles', storagesense: 'zap', restore: 'clock' }[tl.id] || 'wrench';
+    const btn = locked ? `<button class="btn sm violet" data-elevate>${ic('shield', 'sm')}${t('allowFull')}</button>` :
+      tl.id === 'recycle' ? `<button class="btn sm danger" data-clean1="recycle" ${!tl.size ? 'disabled' : ''}>${t('empty')}</button>` :
+      tl.id === 'hiber' ? `<button class="btn sm" data-clean1="hiber" ${!tl.exists ? 'disabled' : ''}>${tl.exists ? t('turnOff') : t('alreadyOff')}</button>` :
+      tl.id === 'dism' ? `<button class="btn sm" data-clean1="dism">${t('run')}</button>` :
+      `<button class="btn sm" data-clean1="${tl.id}">${t('open')}</button>`;
+    const size = tl.size != null && tl.size > 0 ? `<div class="tl-z">${fmt(tl.size)}</div>` : (tl.id === 'dism' ? `<div class="tl-z dim" style="font-size:15px">${t('sizeUnknown')}</div>` : '');
+    return `<div class="card tool"><div class="tl-h"><span class="ic">${ic(icon)}</span>${esc(tx(tl.title))}</div>${size}<p>${esc(tx(tl.desc))}</p>${tl.note ? `<p style="color:var(--warn)">${esc(tx(tl.note))}</p>` : ''}
+      <div class="tl-a">${btn}${tl.admin ? `<span class="badge admin">${t('bAdmin')}</span>` : ''}${tl.risk === 'care' ? `<span class="badge care">${t('bCare')}</span>` : ''}</div></div>`;
+  }).join('');
+  const safe = smartSafeTotal(), meas = sm.items.some(it => it.state === 'measuring');
+  countTo($('#reclaimV'), safe);
+  const lockedAdmin = sm.items.filter(it => it.kind === 'clean' && it.admin && !admin && it.exists && (it.size || it.denied)).length;
+  $('#reclaimS').textContent = meas ? t('reclaimMeasuring') : (lockedAdmin ? t('reclaimAdmin', { n: lockedAdmin }) : t('reclaimSub'));
+}
+function updSmartBar() {
+  if (!S.smart) return;
+  let tt = 0, n = 0;
+  for (const it of S.smart.items) if (S.smartSel.has(it.id)) { tt += it.size || 0; n++; }
+  $('#smartSelV').textContent = fmt(tt); $('#smartSelN').textContent = n ? t('nPlaces', { n }) : '';
+  $('#smartClean').disabled = !n;
+}
+$('#sgroups').addEventListener('change', e => {
+  const c = e.target.closest('.scheck'); if (!c) return;
+  S.smartTouched = true; c.checked ? S.smartSel.add(c.dataset.id) : S.smartSel.delete(c.dataset.id); updSmartBar();
+});
+document.addEventListener('click', e => {
+  const b = e.target.closest('[data-clean1]'); if (b) { e.preventDefault(); cleanTargets([b.dataset.clean1]); }
+  const el = e.target.closest('[data-elevate]'); if (el) { e.preventDefault(); elevate(); }
+});
+$('#smartClean').onclick = () => cleanTargets([...S.smartSel]);
+$('#smartAll').onclick = () => { S.smartTouched = true; S.smartSel = new Set(S.smart.items.filter(it => it.kind === 'clean' && it.risk === 'safe' && it.size > 0 && (!it.admin || S.smart.admin)).map(it => it.id)); renderSmart(); };
+$('#smartRefresh').onclick = async () => { await api.post('/api/smart/refresh'); S.smart.items.forEach(it => it.state = 'measuring'); renderSmart(); setTimeout(loadSmart, 800); };
+
+const OPENERS = ['cleanmgr', 'storagesense', 'winold', 'restore'];
+function cleanTargets(ids) {
+  const items = ids.map(id => S.smart?.items.find(x => x.id === id)).filter(Boolean);
+  if (!items.length) return;
+  const total = items.reduce((a, it) => a + (it.size || 0), 0);
+  const one = items.length === 1 ? items[0] : null;
+  const care = items.filter(it => it.risk === 'care');
+  const opens = one && OPENERS.includes(one.id);
+  const title = opens ? tx(one.title) : one?.id === 'recycle' ? t('ttlRecycle') : one?.id === 'hiber' ? t('ttlHiber') : one?.id === 'dism' ? t('ttlDism') : t('ttlN', { n: items.length });
+  const go = async () => {
+    const s = await runJob('/api/clean', { ids }, opens ? t('opening') : t('cleaning'), opens ? null : renderCleanLive);
+    if (!s) return closeModal();
+    const r = s.result || { items: [] };
+    if (opens) { closeModal(); toast(t('opened', { t: esc(tx(one.title)) })); return; }
+    if (s.state !== 'done') { openModal(t('error'), `<p>${esc(tx(s.msg))}</p>`, [{ label: t('close'), cls: 'primary' }]); return; }
+    const skipped = (r.items || []).filter(x => x.skipped);
+    const extra = (r.failed ? `<div class="infobox">${t('lockedFiles', { n: num(r.failed) })}</div>` : '') +
+      (skipped.length ? `<div class="warnbox">${t('skippedAdmin', { n: skipped.length })}</div>` : '') +
+      (r.freed >= 2 * GB ? `<div class="infobox">${ic('refresh', 'sm')} ${t('rescanning')}</div>` : '');
+    openModal(t('ready'), doneHTML(r.freed, r.free_before, r.free_after, null, extra), [{ label: t('great'), cls: 'primary' }]);
+    growBars();
+    S.smartTouched = false; afterChange();
+  };
+  if (opens) return go();
+  const list = items.map(it => `<li><span>${esc(tx(it.title))}</span><span class="mono">${it.size != null ? fmt(it.size) : '—'}</span></li>`).join('');
+  const notes = care.filter(c => c.note).map(c => esc(tx(c.note))).join('. ');
+  const extra = one?.id === 'recycle' ? `<div class="warnbox">${t('wRecycle', { n: num(one.count) })}</div>` :
+    one?.id === 'hiber' ? `<div class="warnbox">${t('wHiberOff')}</div>` :
+    one?.id === 'dism' ? `<div class="infobox">${t('wDism')}</div>` :
+    care.length ? `<div class="warnbox">${t('wCare', { t: care.map(c => esc(tx(c.title))).join(', '), n: notes ? '. ' + notes : '' })}</div>` :
+    `<p style="margin:10px 0 0;font-size:12.5px">${t('wDefault')}</p>`;
+  openModal(title, `${total ? `<div class="big-total">${fmt(total)}</div>` : ''}<ul class="plain">${list}</ul>${extra}`,
+    [{ label: t('cancel'), cls: 'ghost' }, { label: one?.id === 'recycle' ? t('empty') : one?.id === 'dism' ? t('start') : t('clean'), cls: one?.id === 'recycle' ? 'danger' : 'primary', fn: go }]);
+}
+$('#recBtn').onclick = () => cleanTargets(['recycle']);
+
+/* ================================================================ games */
+async function loadGames() {
+  try { const r = await api.get('/api/games'); S.games = r.items; } catch (e) { return; }
+  renderGames(); renderAll();
+}
+const hue = s => [...String(s)].reduce((a, c) => (a * 31 + c.charCodeAt(0)) % 360, 7);
+function renderGames() {
+  const G = (S.games || []).filter(g => g.size > 0); const d = sysDrive();
+  const cnt = $('#gamesCnt');
+  if (!G.length) {
+    cnt.style.display = 'none';
+    $('#gSum').innerHTML = ''; $('#gGrid').innerHTML = `<div class="card empty" style="grid-column:1/-1"><b>${t('noGames')}</b>${t('noGamesSub')}</div>`; return;
+  }
+  const total = G.reduce((a, g) => a + g.size, 0);
+  const unused = G.filter(g => !g.last_played || nowS() - g.last_played > 60 * DAY);
+  const us = unused.reduce((a, g) => a + g.size, 0);
+  cnt.style.display = ''; cnt.textContent = G.length; cnt.classList.toggle('hot', unused.length > 0);
+  $('#gSum').innerHTML = `<div class="card"><small>${t('gTotal')}</small><b>${fmt(total)}</b><span class="muted">${t('gTotalSub', { n: G.length, p: pct(total, d?.total) })}</span></div>
+    <div class="card"><small>${t('gUnplayed')}</small><b style="color:${us ? 'var(--warn)' : 'var(--ok)'}">${fmt(us)}</b><span class="muted">${unused.length ? unused.map(g => esc(g.name)).slice(0, 3).join(', ') : t('gNone')}</span></div>
+    <div class="card"><small>${t('gBiggest')}</small><b>${fmt(G[0].size)}</b><span class="muted">${esc(G[0].name)}</span></div>`;
+  $('#gGrid').innerHTML = G.map(g => {
+    const days = g.last_played ? (nowS() - g.last_played) / DAY : null;
+    const flag = g.updating ? `<span class="badge live">${t('gUpdating')}</span>` : days == null ? `<span class="badge care">${t('gNever')}</span>` : days > 180 ? `<span class="badge bad">${t('g6m')}</span>` : days > 60 ? `<span class="badge care">${t('g2m')}</span>` : '';
+    const dl = g.dl_total > 0 && g.dl_done < g.dl_total ? `<div><div class="muted" style="font-size:12px;font-weight:700;display:flex;justify-content:space-between"><span>${t('gDownloading')}</span><span class="mono">${fmt(g.dl_done)} / ${fmt(g.dl_total)}</span></div>${barHTML(g.dl_done / g.dl_total)}</div>` : '';
+    const h = hue(g.name);
+    const cover = g.cover && !DEMO ? `<img loading="lazy" src="/api/cover?appid=${g.appid}" alt="" onerror="this.remove()">` : '';
+    return `<article class="card game">
+      <div class="g-cover"><div class="g-ph" style="--gc1:hsl(${h} 70% 45% / .75);--gc2:hsl(${(h + 70) % 360} 75% 50% / .6)">${esc(g.name.replace(/[^A-Za-z0-9]/g, '').slice(0, 2).toUpperCase())}</div>${cover}
+        <div class="g-badges"><span class="badge">${g.store === 'steam' ? 'Steam' : 'Epic'}</span>${flag}</div>
+        <div class="g-name">${esc(g.name)}</div></div>
+      <div class="g-body">
+        <div class="g-stats"><div><small>${t('gSize')}</small><b>${fmt(g.size)}</b></div><div><small>${t('gPlayed')}</small><b>${g.last_played ? ago(g.last_played) : '—'}</b></div><div><small>${t('gDisk')}</small><b>${pct(g.size, d?.total)}%</b></div></div>
+        ${dl}
+        ${g.shader > 100 * MB ? `<div class="muted" style="font-size:12px">${t('gShader', { s: fmt(g.shader) })}</div>` : ''}
+        <div class="g-acts">${g.store === 'steam' ? `<button class="btn sm ${days == null || days > 60 ? 'danger' : ''}" data-guninst="${g.appid}">${ic('trash', 'sm')}${t('gUninst')}</button>` : ''}<button class="btn sm ghost" data-act="reveal" data-path="${esc(g.path)}">${ic('out', 'sm')}${t('folder')}</button></div>
+      </div></article>`;
+  }).join('');
+}
+$('#gGrid').addEventListener('click', e => {
+  const b = e.target.closest('[data-guninst]'); if (!b) return;
+  const g = S.games.find(x => x.appid === b.dataset.guninst);
+  openModal(t('gUninstTitle', { g: esc(g.name) }), `<div class="big-total">${fmt(g.size)}</div>${t('gUninstBody')}${g.last_played ? `<p style="margin:10px 0 0">${t('gLastPlayed', { t: ago(g.last_played) })}</p>` : ''}`,
+    [{ label: t('cancel'), cls: 'ghost' }, { label: t('gOpenSteam'), cls: 'danger', fn: async () => { closeModal(); const r = await api.post('/api/game/uninstall', { appid: g.appid }); r.error ? toast(esc(tx(r.error)), 'bad') : toast(t('gSteamOpened')); } }]);
+});
+$('#gamesRefresh').onclick = loadGames;
+
+/* ================================================================ map */
+function squarify(vals, x, y, w, h) {
+  const total = vals.reduce((a, b) => a + b, 0); if (!total) return [];
+  const sc = vals.map(v => v * w * h / total);
+  const out = []; let i = 0;
+  const worst = (row, s) => { let sum = 0, mx = 0, mn = Infinity; for (const v of row) { sum += v; mx = Math.max(mx, v); mn = Math.min(mn, v); } return Math.max(s * s * mx / (sum * sum), (sum * sum) / (s * s * mn)); };
+  while (i < sc.length) {
+    const s = Math.min(w, h); let row = [sc[i]], j = i + 1, wst = worst(row, s);
+    while (j < sc.length) { const r2 = row.concat(sc[j]); const w2 = worst(r2, s); if (w2 > wst) break; row = r2; wst = w2; j++; }
+    const sum = row.reduce((a, b) => a + b, 0);
+    if (w >= h) { const cw = sum / h; let cy = y; for (const v of row) { const rh = v / cw; out.push({ x, y: cy, w: cw, h: rh }); cy += rh; } x += cw; w -= cw; }
+    else { const rh = sum / w; let cx = x; for (const v of row) { const rw = v / rh; out.push({ x: cx, y, w: rw, h: rh }); cx += rw; } y += rh; h -= rh; }
+    i = j;
+  }
+  return out;
+}
+async function loadMap(path) {
+  path = path || S.status?.scan?.root || S.info?.sysdrive || 'C:\\';
+  let r;
+  try { r = await api.get('/api/children?path=' + encodeURIComponent(path)); } catch (e) { return; }
+  if (r.error) { toast(esc(tx(r.error)), 'bad'); if (path !== S.info?.sysdrive) return loadMap(S.info?.sysdrive); return; }
+  S.mapPath = r.path; S.map = r; renderMap();
+}
+function renderMap() {
+  const r = S.map; if (!r) return;
+  const parts = r.path.replace(/\\+$/, '').split('\\'); let acc = '';
+  $('#crumbs').innerHTML = parts.map((p, i) => { acc = i === 0 ? p + '\\' : (acc.endsWith('\\') ? acc : acc + '\\') + p; return `<a data-nav="${esc(acc)}">${esc(i === 0 ? p + '\\' : p)}</a>`; }).join('<span class="s">›</span>');
+  const scanning = r.scan_state === 'running';
+  $('#mapSum').innerHTML = `${fmt(r.size)}${r.files != null ? t('mapFiles', { n: num(r.files) }) : ''}${r.scanned ? (scanning ? t('mapScanning') : '') : t('mapNotScanned')}`;
+  $('#mapUp').disabled = !r.parent;
+  $('#mapScan').style.display = r.scanned ? 'none' : '';
+  drawTreemap();
+  const tot = r.size || 1;
+  const rows = r.items.map(it => rowHTML(it, { pct: it.size != null ? it.size / tot : 0 })).join('');
+  $('#mapList').innerHTML = `<div class="lhead"><span></span><span>${t('colName')}</span><span></span><span class="sz">${t('colSize')}</span><span class="dt">${t('colChanged')}</span><span></span></div>` +
+    (rows || `<div class="empty"><b>${t('emptyFolder')}</b></div>`) + (r.more ? `<div class="empty" style="padding:14px">${t('moreSmall', { n: num(r.more), s: fmt(r.more_size) })}</div>` : '');
+}
+function drawTreemap() {
+  const r = S.map, el = $('#treemap'); if (!r || S.tab !== 'map') return;
+  const W = el.clientWidth, H = el.clientHeight; if (!W) return;
+  let list = r.items.filter(i => i.size > 0);
+  const cap = 70; const rest = list.slice(cap).reduce((a, i) => a + i.size, 0) + (r.more_size || 0);
+  list = list.slice(0, cap);
+  if (rest > 0) list.push({ name: t('others'), size: rest, other: true });
+  const rects = squarify(list.map(i => i.size), 0, 0, W, H);
+  let di = 0;
+  el.innerHTML = list.map((it, k) => {
+    const q = rects[k]; if (!q) return '';
+    const c = it.other ? '#555c66' : it.dir ? DIRC[di++ % DIRC.length] : (CAT[it.cat]?.c || '#888');
+    const lab = q.w > 54 && q.h > 26 ? `<b>${esc(it.name)}</b>${q.h > 44 ? `<span>${fmt(it.size)}</span>` : ''}` : '';
+    return `<div class="tm ${it.dir ? 'd' : 'f'} ${S.sel.has(it.path) ? 'sel' : ''}" style="left:${q.x}px;top:${q.y}px;width:${q.w}px;height:${q.h}px;--c:${c}" data-k="${k}" ${it.path ? `data-path="${esc(it.path)}"` : ''}>${lab}</div>`;
+  }).join('') || `<div class="empty" style="position:absolute;inset:0;display:grid;place-content:center">${t('noData')}</div>`;
+  el._list = list;
+}
+let lastW = innerWidth;
+addEventListener('resize', () => { if (innerWidth === lastW) return; lastW = innerWidth; clearTimeout(drawTreemap._t); drawTreemap._t = setTimeout(() => { drawTreemap(); drawChart(); }, 120); });
+$('#treemap').addEventListener('click', e => {
+  const tm = e.target.closest('.tm'); if (!tm) return;
+  const it = $('#treemap')._list[+tm.dataset.k]; if (!it || it.other) return;
+  if (it.dir) loadMap(it.path);
+  else if (!it.prot) setSel(it.path, it.size, !S.sel.has(it.path));
+});
+$('#treemap').addEventListener('mousemove', e => {
+  const tm = e.target.closest('.tm'), tip = $('#tip');
+  if (!tm) { tip.style.display = 'none'; return; }
+  const it = $('#treemap')._list[+tm.dataset.k]; if (!it) return;
+  const p = S.map.size ? dec((it.size / S.map.size * 100).toFixed(1)) : 0;
+  tip.innerHTML = `<b>${esc(it.other ? t('othersSmall') : it.name)}</b><span class="mono">${fmt(it.size)}</span> · ${p}%${it.files ? ' · ' + t('nFiles', { n: num(it.files) }) : ''}${it.dir ? `<br><span class="dim">${t('tipEnter')}</span>` : it.other ? '' : `<br><span class="dim">${t('tipSelect')}</span>`}`;
+  tip.style.display = 'block';
+  tip.style.left = Math.min(e.clientX + 14, innerWidth - tip.offsetWidth - 10) + 'px';
+  tip.style.top = Math.min(e.clientY + 14, innerHeight - tip.offsetHeight - 10) + 'px';
+});
+$('#treemap').addEventListener('mouseleave', () => $('#tip').style.display = 'none');
+function mapUp() { if (S.map?.parent) loadMap(S.map.parent); }
+$('#mapUp').onclick = mapUp;
+$('#mapReveal').onclick = () => S.mapPath && api.post('/api/reveal', { path: S.mapPath });
+$('#mapScan').onclick = () => startScan(S.mapPath);
+$('#crumbs').addEventListener('click', e => { const a = e.target.closest('[data-nav]'); if (a) loadMap(a.dataset.nav); });
+
+function rowHTML(it, o = {}) {
+  const cat = it.dir ? null : CAT[it.cat] || CAT.other;
+  const color = it.dir ? 'var(--info)' : cat.c;
+  const icon = it.dir ? 'folder' : cat.i;
+  const sel = S.sel.has(it.path);
+  const tags = [];
+  if (it.junk) tags.push(`<span class="badge info">${esc(it.junk)}</span>`);
+  if (it.kind) tags.push(`<span class="badge info">${esc(it.kind)}</span>`);
+  if (o.cat && cat) tags.push(`<span class="badge gray">${esc(tx(cat.l))}</span>`);
+  if (it.warn) tags.push(`<span class="badge care" title="${esc(tx(it.warn))}">${t('tAppData')}</span>`);
+  if (it.cloud) tags.push(`<span class="badge gray">${t('tCloud')}</span>`);
+  if (it.err) tags.push(`<span class="badge gray" title="${esc(t('tNoAccessTip'))}">${t('tNoAccess')}</span>`);
+  if (it.link) tags.push(`<span class="badge gray">${t('tLink')}</span>`);
+  if (o.extraTag) tags.push(o.extraTag);
+  const ck = it.prot ? `<span title="${esc(tx(it.prot))}">${ic('lock', 'sm')}</span>` :
+    `<input type="checkbox" class="selbox" data-path="${esc(it.path)}" data-size="${it.size || 0}" ${sel ? 'checked' : ''} aria-label="${t('select')}">`;
+  const sub = o.sub != null ? o.sub : o.showPath ? dirOf(it.path) : (it.dir && it.files != null ? t('nFiles', { n: num(it.files) }) : '');
+  const isPath = o.sub != null ? o.subPath : o.showPath;
+  return `<div class="row ${it.dir ? 'dirrow' : ''} ${sel ? 'sel' : ''}" data-selrow="${esc(it.path)}">
+    <div class="ck">${ck}</div>
+    <div class="nm"><span class="ico" style="--c:${color}">${ic(icon, 'sm')}</span><div class="nm-t"><b ${it.dir ? `data-nav="${esc(it.path)}"` : ''} title="${esc(it.path)}">${esc(it.name || base(it.path))}</b>${sub ? `<small class="${isPath ? 'p' : ''}">${isPath ? '\u200E' + esc(sub) + '\u200E' : esc(sub)}</small>` : ''}</div></div>
+    <div class="meta">${tags.join('')}</div>
+    <div class="sz">${it.size == null ? '<span class="dim">?</span>' : fmt(it.size)}</div>
+    <div class="dt">${ago(it.mtime)}</div>
+    <div class="acts">${it.dir ? `<button class="ib" data-act="map" data-path="${esc(it.path)}" title="${t('openMap')}">${ic('grid', 'sm')}</button>` : `<button class="ib" data-act="open" data-path="${esc(it.path)}" title="${t('open')}">${ic('eye', 'sm')}</button>`}<button class="ib" data-act="reveal" data-path="${esc(it.path)}" title="${t('showExplorer')}">${ic('out', 'sm')}</button></div>
+    ${o.pct ? `<i class="pct" style="width:${Math.max(0.3, o.pct * 100)}%"></i>` : ''}
+  </div>`;
+}
+document.addEventListener('click', e => {
+  const a = e.target.closest('[data-act]');
+  if (a) {
+    const p = a.dataset.path;
+    if (a.dataset.act === 'reveal') api.post('/api/reveal', { path: p }).then(r => DEMO && toast(t('demoAction'), 'warn'));
+    else if (a.dataset.act === 'open') api.post('/api/open', { path: p }).then(r => DEMO && toast(t('demoAction'), 'warn'));
+    else if (a.dataset.act === 'map') { switchTab('map'); loadMap(p); }
+    return;
+  }
+  const n = e.target.closest('.list [data-nav]');
+  if (n) { if (S.tab !== 'map') switchTab('map'); loadMap(n.dataset.nav); }
+});
+
+/* ================================================================ big files */
+function renderBigChips() {
+  const cats = ['', 'video', 'archive', 'installer', 'image', 'model', 'project', 'audio', 'document', 'cache', 'other'];
+  $('#bigChips').innerHTML = cats.map(c => `<button class="chip ${S.big.cat === c ? 'on' : ''}" data-bcat="${c}" ${c ? `style="--c:${CAT[c].c}"` : ''}>${c ? '<i></i>' + cl(c) : t('all')}</button>`).join('');
+}
+$('#bigChips').addEventListener('click', e => { const b = e.target.closest('[data-bcat]'); if (!b) return; S.big.cat = b.dataset.bcat; S.big.limit = 300; loadBig(); });
+let bigT;
+$('#bigQ').addEventListener('input', e => { clearTimeout(bigT); bigT = setTimeout(() => { S.big.q = e.target.value.trim(); loadBig(); }, 250); });
+$('#bigScope').onchange = e => { S.big.scope = e.target.value; loadBig(); };
+$('#bigAge').onchange = e => { S.big.age = +e.target.value; loadBig(); };
+$('#bigMin').onchange = e => { S.big.min = +e.target.value; loadBig(); };
+async function loadBig() {
+  renderBigChips();
+  const b = S.big;
+  let r; try { r = await api.get(`/api/big?cat=${b.cat}&scope=${b.scope}&age=${b.age}&min=${b.min}&limit=${b.limit}&q=${encodeURIComponent(b.q)}`); } catch (e) { return; }
+  if (!r.scanned) { $('#bigSum').textContent = t('bigLead'); $('#bigList').innerHTML = `<div class="empty"><b>${t('waitScan')}</b>${t('waitScanBig')}</div>`; return; }
+  $('#bigSum').innerHTML = t('bigSum', { n: num(r.count), s: fmt(r.size) }) + (r.state === 'running' ? t('scanOngoing') : '');
+  $('#bigList').innerHTML = `<div class="lhead"><span></span><span>${t('colFile')}</span><span></span><span class="sz">${t('colSize')}</span><span class="dt">${t('colChanged')}</span><span></span></div>` +
+    (r.items.map(it => rowHTML(it, { showPath: true, cat: true })).join('') || `<div class="empty"><b>${t('nothingFound')}</b>${t('tryFilters')}</div>`) +
+    (r.count > r.items.length ? `<div class="more"><button class="btn sm" id="bigMore">${t('showMore', { n: num(r.count - r.items.length) })}</button></div>` : '');
+  const m = $('#bigMore'); if (m) m.onclick = () => { S.big.limit += 300; loadBig(); };
+}
+
+/* ================================================================ progress */
+async function loadProgress() {
+  try { S.prog = await api.get('/api/progress'); } catch (e) { return; }
+  renderSpark();
+  if (S.tab === 'progress') renderProgress();
+}
+function renderSpark() {
+  const s = (S.prog?.samples || []).slice(-80), svg = $('#spark');
+  if (s.length < 2) { svg.innerHTML = ''; $('#freedS').textContent = t('freedTotal'); return; }
+  const W = 200, H = 46, t0 = s[0][0], t1 = s[s.length - 1][0] || t0 + 1;
+  const mn = Math.min(...s.map(x => x[1])), mx = Math.max(...s.map(x => x[1])), rg = mx - mn || 1;
+  const pts = s.map(x => [(x[0] - t0) / Math.max(1, t1 - t0) * W, H - 4 - (x[1] - mn) / rg * (H - 10)]);
+  const line = pts.map((p, k) => (k ? 'L' : 'M') + p[0].toFixed(1) + ' ' + p[1].toFixed(1)).join('');
+  svg.setAttribute('viewBox', `0 0 ${W} ${H}`);
+  svg.innerHTML = `<defs><linearGradient id="spg" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="var(--accent)" stop-opacity=".35"/><stop offset="1" stop-color="var(--accent)" stop-opacity="0"/></linearGradient></defs>
+    <path d="${line}L${W} ${H}L0 ${H}Z" fill="url(#spg)"/><path d="${line}" fill="none" stroke="var(--accent)" stroke-width="2" vector-effect="non-scaling-stroke"/>`;
+  const first = s[0][1], last = s[s.length - 1][1];
+  $('#freedS').textContent = last > first ? t('freePlus', { s: fmt(last - first) }) : t('freedTotal');
+}
+function niceStep(v) { const p = Math.pow(10, Math.floor(Math.log10(v))); const n = v / p; return (n <= 1 ? 1 : n <= 2 ? 2 : n <= 5 ? 5 : 10) * p; }
+function renderProgress() {
+  const P = S.prog; if (!P) return;
+  const d = sysDrive(); const s = P.samples || [];
+  const lowest = s.length ? Math.min(...s.map(x => x[1])) : null;
+  const pr = P.prognosis || {}; const g = P.growth || {};
+  const prog = pr.ready ? (pr.days != null ? `<b>${pr.days > 365 ? t('kOverYear') : t('kFullIn', { d: Math.round(pr.days) })}</b><span>${t('kFullSub', { s: fmt(pr.per_day) })}</span>` : `<b>${t('kStable')}</b><span>${t('kStableSub', { h: Math.round(pr.span_h) })}</span>`)
+    : `<b class="dim" style="font-size:18px">${t('kCollecting')}</b><span>${t('kCollectingSub', { h: Math.max(1, 12 - Math.round(pr.span_h || 0)) })}</span>`;
+  const acts = P.events.filter(e => e.kind === 'clean' || e.kind === 'delete').length;
+  $('#kpis').innerHTML = `<div class="card kpi hero"><small>${t('kFreed')}</small><b id="kFreed">${fmt(P.freed_total)}</b><span>${t('kActions', { n: acts })}${P.session?.freed ? t('kSession', { s: fmt(P.session.freed) }) : ''}</span></div>
+    <div class="card kpi"><small>${t('kFreeNow')}</small><b>${fmt(d?.free)}</b><span>${lowest != null && d && d.free > lowest ? t('kFromLow', { s: fmt(d.free - lowest) }) : t('diskPct', { p: pct(d?.free, d?.total) })}</span></div>
+    <div class="card kpi"><small>${t('kSinceScan')}</small><b style="color:${g.ready ? (g.used_delta > 0 ? 'var(--bad)' : 'var(--ok)') : 'inherit'}">${g.ready ? (g.used_delta > 0 ? '+' : '') + fmt(g.used_delta) : '—'}</b><span>${g.ready ? t('kUsedDelta', { a: when(g.from_ts), b: when(g.to_ts) }) : t('kAfter2')}</span></div>
+    <div class="card kpi"><small>${t('kForecast')}</small>${prog}</div>`;
+  drawChart();
+  if (!g.ready) { $('#growSub').textContent = t('growLead'); $('#growth').innerHTML = `<div class="empty" style="padding:20px 0"><b>${t('growOne')}</b>${t('growOneSub')}</div>`; }
+  else {
+    $('#growSub').textContent = t('growBetween', { a: when(g.from_ts), b: when(g.to_ts) });
+    const mx = Math.max(...g.items.map(i => Math.abs(i.delta)), 1);
+    $('#growth').innerHTML = g.items.length ? g.items.map(i => `<div class="delta" data-map="${esc(i.path)}"><b>${esc(base(i.path) || i.path)}</b><span class="dv ${i.delta > 0 ? 'up' : 'down'}">${i.delta > 0 ? '+' : ''}${fmt(i.delta)}</span><small>\u200E${esc(i.path)}\u200E</small>
+      <span class="db"><i style="width:${Math.abs(i.delta) / mx * 100}%;background:${i.delta > 0 ? 'var(--bad)' : 'var(--ok)'}"></i></span></div>`).join('')
+      : `<div class="empty" style="padding:20px 0"><b>${t('growNone')}</b>${t('growNoneSub')}</div>`;
+  }
+  const evIcon = { clean: ['sparkles', 'var(--accent-text)'], delete: ['trash', 'var(--violet)'], 'recycle-move': ['trash', 'var(--muted)'] };
+  const ev = [...(P.events || [])].reverse().slice(0, 30);
+  $('#timeline').innerHTML = ev.length ? ev.map(e => { const [i, c] = evIcon[e.kind] || ['check', 'var(--accent-text)']; return `<li><span class="dot" style="--c:${c}">${ic(i, 'sm')}</span><div><b>${esc(tx(e.title))}</b><small>${when(e.ts)}${e.kind === 'recycle-move' ? t('evRecycle') : ''}</small></div><span class="v">${e.bytes ? fmt(e.bytes) : ''}</span></li>`; }).join('')
+    : `<li style="display:block"><div class="empty" style="padding:20px 0"><b>${t('noActions')}</b>${t('noActionsSub')}</div></li>`;
+}
+$('#growth').addEventListener('click', e => { const r = e.target.closest('[data-map]'); if (r) { goTab('map'); loadMap(r.dataset.map); } });
+$('#progRefresh').onclick = loadProgress;
+function drawChart() {
+  const P = S.prog, el = $('#chart'); if (!P || !el || S.tab !== 'progress') return;
+  const s = P.samples || []; const W = el.clientWidth, H = el.clientHeight; if (!W) return;
+  if (s.length < 2) { el.innerHTML = `<div class="empty" style="padding:70px 0"><b>${t('histCollecting')}</b>${t('histCollectingSub')}</div>`; return; }
+  const pad = { l: 58, r: 18, t: 18, b: 26 };
+  const t0 = s[0][0], t1 = s[s.length - 1][0], span = Math.max(60, t1 - t0);
+  const mx = Math.max(...s.map(x => x[1]));
+  const step = niceStep(mx / 3), yMax = Math.ceil(mx * 1.12 / step) * step;
+  const X = tt => pad.l + (tt - t0) / span * (W - pad.l - pad.r), Y = v => pad.t + (1 - v / yMax) * (H - pad.t - pad.b);
+  const pts = s.map(x => [X(x[0]), Y(x[1])]);
+  const line = pts.map((p, k) => (k ? 'L' : 'M') + p[0].toFixed(1) + ' ' + p[1].toFixed(1)).join('');
+  let grid = '';
+  for (let v = 0; v <= yMax + 1; v += step) grid += `<line class="gl" x1="${pad.l}" x2="${W - pad.r}" y1="${Y(v)}" y2="${Y(v)}"/><text class="ax" x="${pad.l - 8}" y="${Y(v) + 4}" text-anchor="end">${fmt(v).replace(/[.,]00 /, ' ')}</text>`;
+  const fmtT = tt => { const w = when(tt); return span < 2 * DAY ? w.slice(-5) : w.slice(0, -6); };
+  const xt = [t0, t0 + span / 2, t1].map((tt, k) => `<text class="ax" x="${X(tt)}" y="${H - 6}" text-anchor="${['start', 'middle', 'end'][k]}">${fmtT(tt)}</text>`).join('');
+  const valAt = tt => { const k = s.findIndex(x => x[0] >= tt); if (k <= 0) return s[Math.max(0, k)][1]; const a = s[k - 1], b = s[k]; return a[1] + (b[1] - a[1]) * ((tt - a[0]) / Math.max(1, b[0] - a[0])); };
+  const evs = (P.events || []).filter(e => e.ts >= t0 && e.ts <= t1 + 60 && (e.kind === 'clean' || e.kind === 'delete'));
+  const marks = evs.map(e => { const x = X(Math.min(e.ts, t1)), y = Y(valAt(e.ts)); return `<line class="evl" x1="${x}" x2="${x}" y1="${y}" y2="${H - pad.b}"/><circle class="ev ${e.kind === 'delete' ? 'del' : ''}" cx="${x}" cy="${y}" r="5"><title>${esc(tx(e.title))} — ${fmt(e.bytes)} (${when(e.ts)})</title></circle>`; }).join('');
+  const last = pts[pts.length - 1];
+  el.innerHTML = `<svg viewBox="0 0 ${W} ${H}"><defs><linearGradient id="cg" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="var(--accent)" stop-opacity=".32"/><stop offset="1" stop-color="var(--accent)" stop-opacity="0"/></linearGradient></defs>
+    ${grid}${xt}<path d="${line}L${last[0]} ${Y(0)}L${pts[0][0]} ${Y(0)}Z" fill="url(#cg)"/><path class="ln" d="${line}"/>${marks}
+    <circle class="nowr" cx="${last[0]}" cy="${last[1]}" r="11"/><circle class="now" cx="${last[0]}" cy="${last[1]}" r="5"/>
+    <text class="ax" x="${Math.min(last[0], W - pad.r)}" y="${last[1] - 14}" text-anchor="end" style="fill:var(--accent-text);font-weight:700">${fmt(s[s.length - 1][1])}</text></svg>`;
+}
+
+/* ================================================================ types */
+async function loadTypes() { try { S.types = await api.get('/api/types'); } catch (e) { } return S.types; }
+function renderTypes() {
+  const T = S.types; if (!T || !T.cats.length) { $('#typeCats').innerHTML = `<div class="empty"><b>${t('waitScan')}</b></div>`; $('#typeExts').innerHTML = ''; return; }
+  const mx = T.cats[0].size || 1;
+  $('#typeCats').innerHTML = T.cats.map(c => { const m = CAT[c.cat] || CAT.other; return `<div class="tcat" data-tcat="${c.cat}" style="--c:${m.c}"><span class="ico">${ic(m.i, 'sm')}</span>
+    <div><b>${esc(tx(m.l))}</b> <small>${t('nFilesExt', { n: num(c.count) })} · ${c.exts.slice(0, 4).map(e => esc(e.ext)).join(' ')}</small><div class="bar"><i style="width:${c.size / mx * 100}%"></i></div></div>
+    <b class="mono">${fmt(c.size)}</b></div>`; }).join('');
+  $('#typeExts').innerHTML = `<div class="lhead" style="grid-template-columns:minmax(0,1fr) 80px 90px;grid-template-areas:none;display:grid"><span>${t('colExt')}</span><span style="text-align:right">${t('colCount')}</span><span style="text-align:right">${t('colSize')}</span></div>` +
+    T.exts.map(e => `<div class="ext-row" style="--c:${(CAT[e.cat] || CAT.other).c}"><span class="e"><i></i>${esc(e.ext)}</span><span class="mono dim" style="text-align:right">${num(e.count)}</span><span class="mono" style="text-align:right">${fmt(e.size)}</span></div>`).join('');
+}
+$('#typeCats').addEventListener('click', e => { const tc = e.target.closest('[data-tcat]'); if (!tc) return; S.big.cat = tc.dataset.tcat; S.big.scope = 'all'; $('#bigScope').value = 'all'; switchTab('big'); });
+
+/* ================================================================ dups */
+$('#dupRun').onclick = async () => {
+  const s = await runJob('/api/dups', {}, t('dupsSearching'), j => `<div class="live"><div class="live-num" id="liveNum" data-raw="1" style="font-size:34px">${Math.round((j.progress || 0) * 100)}%</div><div class="live-sub">${esc(tx(j.msg) || t('preparing'))}</div>${barHTML(j.progress)}</div>`);
+  closeModal();
+  if (!s) return;
+  if (s.state !== 'done') return toast(esc(tx(s.msg) || t('error')), 'bad');
+  S.dups = s.result; renderDups(); renderAdvice();
+};
+function renderDups() {
+  const D = S.dups; if (!D) return;
+  $('#dupSmart').style.display = D.groups.length ? '' : 'none';
+  if (!D.groups.length) { $('#dupBody').innerHTML = `<div class="card empty"><b>${t('dupsNone')}</b>${t('dupsNoneSub')}</div>`; return; }
+  $('#dupBody').innerHTML = `<p class="muted" style="margin:0 2px 12px">${t('dupsSum', { n: num(D.total_groups), s: fmt(D.wasted) })}</p>` +
+    D.groups.map(g => `<div class="card dgroup"><div class="dg-h"><span class="badge gray">${esc(cl(g.cat))}</span><b>${fmt(g.size)}</b><span class="muted">${t('copies', { n: g.files.length })}</span><span class="sp"></span><span class="muted">${t('extra')}: <b class="mono" style="color:var(--text)">${fmt(g.wasted)}</b></span>${g.sampled ? `<span class="badge gray" title="${esc(t('sampleTip'))}">${t('sample')}</span>` : ''}</div>` +
+      g.files.map((f, fi) => rowHTML({ path: f.path, name: base(f.path), size: g.size, mtime: f.mtime, cat: g.cat, prot: f.prot }, { showPath: true, extraTag: fi === 0 ? `<span class="badge safe">${t('oldest')}</span>` : '' })).join('') + '</div>').join('');
+}
+$('#dupSmart').onclick = () => {
+  for (const g of S.dups.groups) {
+    const score = f => (/\\Downloads\\|\\Telegram Desktop\\|\\Temp\\/i.test(f.path) ? 1e12 : 0) + f.mtime;
+    const keep = [...g.files].sort((a, b) => score(a) - score(b))[0];
+    for (const f of g.files) if (f !== keep && !f.prot) setSel(f.path, g.size, true);
+  }
+  renderDups(); toast(t('dupsPicked'));
+};
+
+/* ================================================================ dev junk */
+async function loadJunk() { try { S.junk = await api.get('/api/junk'); } catch (e) { } return S.junk; }
+function renderDev() {
+  const J = S.junk;
+  if (!J?.scanned) { $('#devList').innerHTML = `<div class="empty"><b>${t('waitScan')}</b></div>`; return; }
+  if (!J.items.length) { $('#devList').innerHTML = `<div class="empty"><b>${t('devNone')}</b>${t('devNoneSub')}</div>`; return; }
+  $('#devList').innerHTML = `<div class="lhead"><span></span><span>${t('colProject')}</span><span></span><span class="sz">${t('colSize')}</span><span class="dt">${t('colLastWork')}</span><span></span></div>` +
+    J.items.map(it => rowHTML({ ...it, name: base(it.project), dir: true }, { sub: it.path, subPath: true, extraTag: (nowS() - it.mtime) > 90 * DAY ? `<span class="badge care">${t('d90')}</span>` : '' })).join('');
+}
+$('#devOld').onclick = () => {
+  if (!S.junk) return; let n = 0;
+  for (const it of S.junk.items) if (!it.prot && (nowS() - it.mtime) > 90 * DAY) { setSel(it.path, it.size, true); n++; }
+  renderDev(); toast(n ? t('devPicked', { n }) : t('devNoOld'), n ? 'ok' : 'warn');
+};
+
+/* ================================================================ downloads */
+async function loadDl() { try { S.dl = await api.get('/api/downloads'); } catch (e) { } return S.dl; }
+function renderDl() {
+  const D = S.dl; if (!D) return;
+  $('#dlSum').innerHTML = t('dlSum', { p: esc(D.path), n: num(D.count), s: fmt(D.total) });
+  const G = [['installers', 'dlInst', 'dlInstSub', 'package'], ['extracted', 'dlExt', 'dlExtSub', 'archive'], ['videos', 'dlVids', 'dlVidsSub', 'film'], ['old', 'dlOld', 'dlOldSub', 'alert']];
+  const html = G.map(([k, tk, dk, i]) => {
+    const g = D.groups[k]; if (!g?.count) return '';
+    return `<div class="card dgroup"><div class="dg-h">${ic(i)}<div><b style="font-family:var(--font)">${t(tk)}</b><div class="muted" style="font-size:12.5px">${t(dk)}</div></div><span class="sp"></span><b>${fmt(g.size)}</b><span class="muted">${num(g.count)}</span><button class="btn sm" data-dlall="${k}">${t('selectAll')}</button></div>` +
+      g.items.map(it => rowHTML(it, { cat: true })).join('') + '</div>';
+  }).join('');
+  $('#dlBody').innerHTML = html || `<div class="card empty"><b>${t('dlClean')}</b>${t('dlCleanSub')}</div>`;
+}
+$('#dlBody').addEventListener('click', e => {
+  const b = e.target.closest('[data-dlall]'); if (!b) return;
+  S.dl.groups[b.dataset.dlall].items.forEach(it => setSel(it.path, it.size, true));
+});
+$('#dlRefresh').onclick = () => loadDl().then(() => { renderDl(); renderAll(); });
+
+/* ================================================================ apps */
+async function loadApps() {
+  $('#appList').innerHTML = `<div class="empty">${t('appsLoading')}</div>`;
+  try { S.apps = await api.get('/api/apps'); } catch (e) { return; }
+}
+function renderApps() {
+  const A = S.apps; if (!A) return;
+  const q = $('#appQ').value.trim().toLowerCase();
+  const items = A.items.filter(a => !q || a.name.toLowerCase().includes(q) || (a.publisher || '').toLowerCase().includes(q));
+  $('#appSum').textContent = t('appsSum', { n: A.items.length, s: fmt(A.total) });
+  const mx = A.items[0]?.size || 1;
+  $('#appList').innerHTML = items.map(a => `<div class="row"><div class="ck"></div>
+    <div class="nm"><span class="ico" style="--c:var(--violet)">${ic('package', 'sm')}</span><div class="nm-t"><b title="${esc(a.location)}">${esc(a.name)}</b><small>${esc([a.publisher, a.version].filter(Boolean).join(' · '))}</small></div></div>
+    <div class="meta">${a.src === 'scan' ? `<span class="badge safe" title="${esc(t('exactTip'))}">${t('exact')}</span>` : ''}</div>
+    <div class="sz">${a.size ? fmt(a.size) : '<span class="dim">—</span>'}</div>
+    <div class="dt">${esc(a.date)}</div>
+    <div class="acts">${a.location ? `<button class="ib" data-act="reveal" data-path="${esc(a.location)}" title="${t('openFolder')}">${ic('out', 'sm')}</button>` : ''}<button class="ib danger" data-uninst="${esc(a.key)}" title="${t('uninstall')}">${ic('trash', 'sm')}</button></div>
+    ${a.size ? `<i class="pct" style="width:${a.size / mx * 100}%;background:var(--violet)"></i>` : ''}</div>`).join('') || `<div class="empty"><b>${t('notFound')}</b></div>`;
+}
+$('#appQ').addEventListener('input', renderApps);
+$('#appList').addEventListener('click', e => {
+  const b = e.target.closest('[data-uninst]'); if (!b) return;
+  const a = S.apps.items.find(x => x.key === b.dataset.uninst);
+  openModal(t('uninstTitle', { a: esc(a.name) }), `${t('uninstBody')}${a.size ? `<div class="big-total">${fmt(a.size)}</div>` : ''}`,
+    [{ label: t('cancel'), cls: 'ghost' }, { label: t('uninstOpen'), cls: 'danger', fn: async () => { closeModal(); const r = await api.post('/api/uninstall', { key: a.key }); r.error ? toast(esc(tx(r.error)), 'bad') : toast(t('uninstOpened')); setTimeout(() => S.tab === 'apps' && loadApps().then(renderApps), 15000); } }]);
+});
+
+/* ================================================================ advice */
+function renderAdvice() {
+  const A = [], I = S.info, sm = S.smart;
+  if (sm) {
+    const safe = smartSafeTotal();
+    if (safe > 100 * MB) A.push({ s: safe, i: 'sparkles', tl: t('aCache', { s: fmt(safe) }), d: t('aCacheSub'), cta: t('clean'), go: 'smart' });
+    const hib = sm.items.find(x => x.id === 'hiber');
+    if (hib?.size > 2 * GB) A.push({ s: hib.size * 0.6, i: 'moon2', tl: t('aHiber', { s: fmt(hib.size) }), d: t('aHiberSub'), cta: t('look'), go: 'smart', c: 'var(--violet)' });
+    const adm = sm.items.filter(x => x.kind === 'clean' && x.admin && x.exists);
+    if (adm.length && !sm.admin) A.push({ s: 50 * MB, i: 'shield', tl: t('aAdmin'), d: t('aAdminSub', { n: adm.length }), cta: t('grant'), fn: elevate, c: 'var(--violet)' });
+  }
+  if (I?.recycle?.size > 100 * MB) A.push({ s: I.recycle.size, i: 'trash', tl: t('aRecycle', { s: fmt(I.recycle.size) }), d: t('aRecycleSub', { n: num(I.recycle.count) }), cta: t('empty'), fn: () => cleanTargets(['recycle']), c: 'var(--bad)' });
+  const G = (S.games || []).filter(g => g.size > 0 && (!g.last_played || nowS() - g.last_played > 60 * DAY));
+  const gs = G.reduce((a, g) => a + g.size, 0);
+  if (gs > 2 * GB) A.push({ s: gs, i: 'game', tl: t('aGames', { n: G.length, s: fmt(gs) }), d: t('aGamesSub', { g: G.slice(0, 2).map(g => g.name).join(', ') }), cta: t('look'), go: 'games', c: BK.games.c });
+  if (S.junk?.items) {
+    const old = S.junk.items.filter(x => !x.prot && nowS() - x.mtime > 90 * DAY);
+    const os = old.reduce((a, x) => a + x.size, 0);
+    if (os > 300 * MB) A.push({ s: os, i: 'code', tl: t('aDev', { s: fmt(os) }), d: t('aDevSub', { n: old.length }), cta: t('look'), go: 'dev', c: 'var(--info)' });
+  }
+  if (S.dl?.groups) {
+    const g = S.dl.groups, inst = g.installers.size + g.extracted.size;
+    if (inst > 200 * MB) A.push({ s: inst, i: 'download', tl: t('aDl', { s: fmt(inst) }), d: t('aDlSub', { a: g.installers.count, b: g.extracted.count }), cta: t('look'), go: 'downloads', c: BK.downloads.c });
+    if (g.videos.size > 5 * GB) A.push({ s: g.videos.size * 0.5, i: 'film', tl: t('aVid', { s: fmt(g.videos.size) }), d: t('aVidSub', { n: g.videos.count }), cta: t('look'), go: 'downloads', c: CAT.video.c });
+  }
+  if (S.dups?.wasted > 100 * MB) A.push({ s: S.dups.wasted, i: 'copy', tl: t('aDups', { s: fmt(S.dups.wasted) }), d: t('aDupsSub', { n: S.dups.total_groups }), cta: t('look'), go: 'dups', c: CAT.image.c });
+  else if (!S.dups && (S.status?.scan || S.info?.scan)?.state === 'done') A.push({ s: 1, i: 'copy', tl: t('aCheckDups'), d: t('aCheckDupsSub'), cta: t('search'), go: 'dups', c: CAT.image.c });
+  A.sort((a, b) => b.s - a.s);
+  window._adv = A;
+  $('#advice').innerHTML = A.length ? A.slice(0, 6).map((a, k) => `<div class="card adv" data-adv="${k}" style="${a.c ? `--c:${a.c};--c-soft:color-mix(in oklab,${a.c} 14%,transparent)` : ''}">
+    <span class="a-ic">${ic(a.i)}</span><div><b>${a.tl}</b><p>${esc(a.d)}</p><span class="a-go">${a.cta} ${ic('right', 'sm')}</span></div></div>`).join('')
+    : `<div class="card adv" style="cursor:default"><span class="a-ic">${ic('check')}</span><div><b>${t('noAdvice')}</b><p>${t('noAdviceSub')}</p></div></div>`;
+}
+$('#advice').addEventListener('click', e => {
+  const c = e.target.closest('[data-adv]'); if (!c) return;
+  const a = window._adv[+c.dataset.adv];
+  if (a.fn) a.fn(); else goTab(a.go);
+});
+
+/* ================================================================ elevate */
+async function elevate() {
+  if (DEMO) return toast(t('demoAction'), 'warn');
+  openModal(t('elevTitle'), t('elevBody'),
+    [{ label: t('cancel'), cls: 'ghost' }, {
+      label: ic('shield', 'sm') + t('continue'), cls: 'primary', fn: async () => {
+        closeModal();
+        $('#overlay').classList.add('on');
+        let r; try { r = await api.post('/api/elevate'); } catch (e) { r = { ok: true }; }
+        if (!r.ok) { $('#overlay').classList.remove('on'); return toast(esc(tx(r.error) || t('denied')), 'warn'); }
+        $('#ovS').textContent = t('waitingServer');
+        for (let i = 0; i < 90; i++) {
+          await sleep(1000);
+          try { const inf = await api.get('/api/info'); if (inf.admin) { location.reload(); return; } } catch (e) { }
+        }
+        $('#overlay').classList.remove('on'); toast(t('elevFail'), 'warn');
+      }
+    }]);
+}
+$('#elevateBtn').onclick = elevate;
+
+/* ================================================================ theme / language / boot */
+function setThemeIcon() { $('#themeBtn').innerHTML = ic(document.documentElement.dataset.theme === 'dark' ? 'sun' : 'moon'); }
+$('#themeBtn').onclick = () => {
+  const th = document.documentElement.dataset.theme === 'dark' ? 'light' : 'dark';
+  document.documentElement.dataset.theme = th; try { localStorage.setItem('xotira-theme', th); } catch (e) { }
+  setThemeIcon(); drawTreemap(); drawChart();
+};
+$('#langSw').addEventListener('click', e => { const b = e.target.closest('[data-lang]'); if (b && b.dataset.lang !== LANG) setLang(b.dataset.lang); });
+setThemeIcon();
+
+function loadScript(src) { return new Promise((ok, bad) => { const s = document.createElement('script'); s.src = src; s.onload = ok; s.onerror = bad; document.head.appendChild(s); }); }
+(async function boot() {
+  applyStatic();
+  if (REPO_URL) { $('#repoLink').href = REPO_URL; $('#repoLink').style.display = ''; }
+  if (DEMO) { await loadScript('demo.js'); await window.XotiraDemo.ready; $('#demoPill').style.display = ''; }
+  const q = new URLSearchParams(location.search);
+  if (q.get('lang') === 'en' || q.get('lang') === 'uz') { LANG = q.get('lang'); applyStatic(); }
+  if (q.get('theme')) { document.documentElement.dataset.theme = q.get('theme'); setThemeIcon(); }
+  $('#dupBody').innerHTML = `<div class="card empty"><b>${t('dupsNotRun')}</b>${t('dupsNotRunSub')}</div>`;
+  renderDiag();
+  await loadInfo();
+  S.lastScanState = S.info?.scan?.state || null;
+  S.status = { scan: S.info?.scan };
+  S.mapPath = S.info?.scan?.root || S.info?.sysdrive;
+  loadSmart(); loadProgress(); loadGames();
+  if (S.info?.scan?.state === 'done') onScanDone();
+  else loadDl().then(renderAll);
+  if (q.get('tab')) switchTab(q.get('tab'));
+  poll();
+})();
+
+</script>
+</body>
+</html>
