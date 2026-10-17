@@ -26,6 +26,11 @@
   <a href="https://t.me/neyroai"><b>Telegram kanal</b></a>
 </p>
 
+<p align="center">
+  <a href="https://humoyun200108.github.io/xotira/promo/#uz"><img src="docs/promo/poster_uz.jpg" width="760" alt="Xotira — 40 soniyalik promo video"></a><br>
+  <sub>🎬 40 soniyalik promo · <a href="https://humoyun200108.github.io/xotira/promo/#uz">koʻrish</a> · <a href="https://github.com/humoyun200108/xotira/releases/download/v1.0.0/Xotira_promo_UZ_2K_60fps.mp4">2K 60 fps</a> · <a href="https://humoyun200108.github.io/xotira/promo/#en">English version</a></sub>
+</p>
+
 ![Xotira — disk holati](docs/screenshots/hero-uz.webp)
 
 ## Nega Xotira

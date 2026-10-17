@@ -26,6 +26,11 @@
   <a href="https://t.me/neyroai"><b>Telegram channel</b></a>
 </p>
 
+<p align="center">
+  <a href="https://humoyun200108.github.io/xotira/promo/#en"><img src="docs/promo/poster_en.jpg" width="760" alt="Xotira — 40-second promo video"></a><br>
+  <sub>🎬 40-second promo · <a href="https://humoyun200108.github.io/xotira/promo/#en">watch</a> · <a href="https://github.com/humoyun200108/xotira/releases/download/v1.0.0/Xotira_promo_EN_2K_60fps.mp4">2K 60 fps</a> · <a href="https://humoyun200108.github.io/xotira/promo/#uz">Oʻzbekcha versiya</a></sub>
+</p>
+
 ![Xotira — disk overview](docs/screenshots/hero-en.webp)
 
 ## Why Xotira
